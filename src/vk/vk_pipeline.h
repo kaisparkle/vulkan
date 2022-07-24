@@ -12,6 +12,7 @@ public:
     VkPipelineRasterizationStateCreateInfo _rasterizer;
     VkPipelineColorBlendAttachmentState _colorBlendAttachment;
     VkPipelineMultisampleStateCreateInfo _multisampling;
+    VkPipelineDepthStencilStateCreateInfo _depthStencil;
     VkPipelineLayout _pipelineLayout;
     VkViewport _viewport;
     VkRect2D _scissor;
