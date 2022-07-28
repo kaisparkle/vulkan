@@ -31,6 +31,14 @@ void VkRenderer::init() {
             window_flags
     );
 
+    // initialize camera defaults
+    _camera.position = {0.0f, 0.0f, -2.0f};
+    _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
+    _camera.projection = glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 200.0f);
+    _camera.projection[1][1] *= -1;
+    _camera.speed = 0.1f;
+    _camera.sprint_multiplier = 1.0f;
+
     init_vulkan();
     init_swapchain();
     init_commands();
@@ -495,15 +503,11 @@ FrameData &VkRenderer::get_current_frame() {
 }
 
 void VkRenderer::draw_objects(VkCommandBuffer cmd, RenderObject *first, int count) {
-    glm::mat4 view = glm::translate(glm::mat4(1.0f), _camPos);
-    glm::mat4 projection = glm::perspective(glm::radians(70.0f), 1700.0f / 900.0f, 0.1f, 200.0f);
-    projection[1][1] *= -1;
-
     // set up camera parameters and copy
     GPUCameraData camData;
-    camData.proj = projection;
-    camData.view = view;
-    camData.viewproj = projection * view;
+    camData.proj = _camera.projection;
+    camData.view = _camera.view;
+    camData.viewproj = _camera.projection * _camera.view;
     void *data;
     vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation, &data);
     memcpy(data, &camData, sizeof(GPUCameraData));
@@ -572,6 +576,22 @@ void VkRenderer::draw() {
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
     VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
+    // check for camera movement
+    auto *keystate = const_cast<uint8_t *>(SDL_GetKeyboardState(nullptr));
+    if (keystate[SDL_SCANCODE_LSHIFT]) {
+        _camera.sprint_multiplier = 2.0f;
+    } else {
+        _camera.sprint_multiplier = 1.0f;
+    }
+    if (keystate[SDL_SCANCODE_W]) _camera.position.z += _camera.speed * _camera.sprint_multiplier;
+    if (keystate[SDL_SCANCODE_A]) _camera.position.x += _camera.speed * _camera.sprint_multiplier;
+    if (keystate[SDL_SCANCODE_S]) _camera.position.z -= _camera.speed * _camera.sprint_multiplier;
+    if (keystate[SDL_SCANCODE_D]) _camera.position.x -= _camera.speed * _camera.sprint_multiplier;
+    if (keystate[SDL_SCANCODE_Q]) _camera.position.y += _camera.speed * _camera.sprint_multiplier;
+    if (keystate[SDL_SCANCODE_E]) _camera.position.y -= _camera.speed * _camera.sprint_multiplier;
+    // update camera view
+    _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
+
     // grab image from swapchain, timeout 1sec
     uint32_t swapchainImageIndex;
     VK_CHECK(vkAcquireNextImageKHR(_device, _swapchain, 1000000000, get_current_frame()._presentSemaphore, nullptr, &swapchainImageIndex));
@@ -598,26 +618,6 @@ void VkRenderer::draw() {
 
     // start the render pass
     VkRenderPassBeginInfo rpInfo = vkinit::info::renderpass_begin_info(_renderPass, 0, 0, _windowExtent, _framebuffers[swapchainImageIndex], 2, &clearValues[0]);
-
-    auto *keystate = const_cast<uint8_t *>(SDL_GetKeyboardState(nullptr));
-    if (keystate[SDL_SCANCODE_W]) {
-        _camPos.z += 0.1f;
-    }
-    if (keystate[SDL_SCANCODE_A]) {
-        _camPos.x += 0.1f;
-    }
-    if (keystate[SDL_SCANCODE_S]) {
-        _camPos.z -= 0.1f;
-    }
-    if (keystate[SDL_SCANCODE_D]) {
-        _camPos.x -= 0.1f;
-    }
-    if (keystate[SDL_SCANCODE_Q]) {
-        _camPos.y += 0.1f;
-    }
-    if (keystate[SDL_SCANCODE_E]) {
-        _camPos.y -= 0.1f;
-    }
 
     vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
     draw_objects(cmd, _renderables.data(), _renderables.size());

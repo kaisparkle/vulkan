@@ -11,6 +11,14 @@
 #include <vk/mesh.h>
 #include <vk/init/descriptor.h>
 
+struct Camera {
+    glm::vec3 position;
+    glm::mat4 view;
+    glm::mat4 projection;
+    float speed;
+    float sprint_multiplier;
+};
+
 struct Material {
     VkPipeline pipeline;
     VkPipelineLayout pipelineLayout;
@@ -76,8 +84,7 @@ public:
 
     struct SDL_Window *_window{nullptr};
 
-    glm::vec3 _camPos = {0.0f, 0.0f, -2.0f};
-
+    Camera _camera;
     DeletionQueue _mainDeletionQueue;
     FrameData _frames[FRAME_OVERLAP];
     VmaAllocator _allocator;
