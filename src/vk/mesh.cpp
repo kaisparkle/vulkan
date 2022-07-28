@@ -1,7 +1,8 @@
 #include <iostream>
 #include <tiny_obj_loader.h>
+#include <vk/common.h>
 
-#include "vk_mesh.h"
+#include "mesh.h"
 
 VertexInputDescription Vertex::get_vertex_description() {
     VertexInputDescription description;
@@ -54,23 +55,23 @@ bool Mesh::load_from_obj(const char *filename) {
     std::string err;
     tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, nullptr);
     // check warnings and errors
-    if(!warn.empty()) {
+    if (!warn.empty()) {
         std::cout << "WARN: " << warn << std::endl;
     }
-    if(!err.empty()) {
+    if (!err.empty()) {
         std::cerr << "ERR: " << err << std::endl;
         return false;
     }
 
     // loop over shapes
-    for(size_t s = 0; s < shapes.size(); s++) {
+    for (size_t s = 0; s < shapes.size(); s++) {
         // loop over faces
         size_t index_offset = 0;
-        for(size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
             // hardcode loading to triangles
             int fv = 3;
             // loop over face vertices
-            for(size_t v = 0; v < fv; v++) {
+            for (size_t v = 0; v < fv; v++) {
                 // access to vertex
                 tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
                 // vertex position

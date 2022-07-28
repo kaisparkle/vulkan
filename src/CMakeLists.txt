@@ -1,16 +1,19 @@
 # Add source to this project's executable.
 add_executable(${CMAKE_PROJECT_NAME}
         main.cpp
-        vk/vk_engine.cpp
-        vk/vk_engine.h
-        vk/vk_initializers.cpp
-        vk/vk_initializers.h
-        vk/vk_pipeline.cpp
-        vk/vk_pipeline.h
-        vk/vk_mesh.cpp
-        vk/vk_mesh.h
-        vk/vk_types.h
-        vk/vk_check.h)
+        vk/common.h
+        vk/init/info.cpp
+        vk/init/info.h
+        vk/init/pipeline.cpp
+        vk/init/pipeline.h
+        vk/init/descriptor.cpp
+        vk/init/descriptor.h
+        vk/mesh.cpp
+        vk/mesh.h
+        vk/types.h
+        vk/check.h
+        vk/renderer.cpp
+        vk/renderer.h)
 
 set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>")
 

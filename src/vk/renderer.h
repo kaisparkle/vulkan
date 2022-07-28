@@ -6,9 +6,10 @@
 #include <glm/glm.hpp>
 #include <unordered_map>
 #include <string>
-
-#include "vk_types.h"
-#include "vk_mesh.h"
+#include <vk/common.h>
+#include <vk/types.h>
+#include <vk/mesh.h>
+#include <vk/init/descriptor.h>
 
 struct Material {
     VkPipeline pipeline;
@@ -21,10 +22,35 @@ struct RenderObject {
     glm::mat4 transformMatrix;
 };
 
-struct MeshPushConstants {
-    glm::vec4 data;
-    glm::mat4 render_matrix;
+struct GPUCameraData {
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::mat4 viewproj;
 };
+
+struct GPUSceneData {
+    glm::vec4 fogColor; // w for exponent
+    glm::vec4 fogDistances; // x for min, y for max, zw unusued
+    glm::vec4 ambientColor;
+    glm::vec4 sunlightDirection; // w for sun power
+    glm::vec4 sunlightColor;
+};
+
+struct GPUObjectData {
+    glm::mat4 modelMatrix;
+};
+
+struct FrameData {
+    VkSemaphore _presentSemaphore, _renderSemaphore;
+    VkFence _renderFence;
+    VkCommandPool _commandPool;
+    VkCommandBuffer _mainCommandBuffer;
+    AllocatedBuffer cameraBuffer;
+    AllocatedBuffer objectBuffer;
+    vkinit::descriptor::Allocator *_descriptorAllocator;
+};
+
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 struct DeletionQueue {
     std::deque<std::function<void()>> deletors;
@@ -43,21 +69,23 @@ struct DeletionQueue {
     }
 };
 
-class VulkanEngine {
+class VkRenderer {
 public:
     bool _isInitialized{false};
-    int _frameNumber{0};
+    int _frameNumber = 0;
 
     struct SDL_Window *_window{nullptr};
 
     glm::vec3 _camPos = {0.0f, 0.0f, -2.0f};
 
     DeletionQueue _mainDeletionQueue;
+    FrameData _frames[FRAME_OVERLAP];
     VmaAllocator _allocator;
     VkExtent2D _windowExtent{1700, 900};
     VkInstance _instance;
     VkDebugUtilsMessengerEXT _debug_messenger;
     VkPhysicalDevice _chosenGPU;
+    VkPhysicalDeviceProperties _gpuProperties;
     VkDevice _device;
     VkSurfaceKHR _surface;
     VkSwapchainKHR _swapchain;
@@ -69,23 +97,21 @@ public:
     VkFormat _depthFormat;
     VkQueue _graphicsQueue;
     uint32_t _graphicsQueueFamily;
-    VkCommandPool _commandPool;
-    VkCommandBuffer _mainCommandBuffer;
     VkRenderPass _renderPass;
     std::vector<VkFramebuffer> _framebuffers;
-    VkSemaphore _presentSemaphore, _renderSemaphore;
-    VkFence _renderFence;
-    VkPipelineLayout _trianglePipelineLayout;
-    VkPipelineLayout _meshTrianglePipelineLayout;
-    VkPipeline _trianglePipeline;
-    VkPipeline _redTrianglePipeline;
+    vkinit::descriptor::LayoutCache *_descriptorLayoutCache;
+    VkDescriptorSetLayout _globalSetLayout;
+    VkDescriptorSetLayout _objectSetLayout;
+    VkPipelineLayout _meshPipelineLayout;
     VkPipeline _meshPipeline;
-    Mesh _triangleMesh;
+    GPUSceneData _sceneParameters;
+    AllocatedBuffer _sceneParameterBuffer;
     Mesh _monkeyMesh;
-    int _selectedShader = 0;
 
     // initializes everything in the engine
     void init();
+
+    FrameData &get_current_frame();
 
     // draw loop
     void draw();
@@ -97,8 +123,8 @@ public:
     void cleanup();
 
     std::vector<RenderObject> _renderables;
-    std::unordered_map<std::string,Material> _materials;
-    std::unordered_map<std::string,Mesh> _meshes;
+    std::unordered_map<std::string, Material> _materials;
+    std::unordered_map<std::string, Mesh> _meshes;
 
     // create a Material and add it to map
     Material *create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string &name);
@@ -122,6 +148,8 @@ private:
 
     void init_sync_structures();
 
+    void init_descriptors();
+
     void init_pipelines();
 
     void load_meshes();
@@ -129,6 +157,10 @@ private:
     void upload_mesh(Mesh &mesh);
 
     bool load_shader_module(const char *filePath, VkShaderModule *outShaderModule);
+
+    AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
+    size_t pad_uniform_buffer_size(size_t originalSize);
 
     void init_scene();
 };

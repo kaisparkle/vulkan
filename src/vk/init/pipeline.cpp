@@ -1,8 +1,19 @@
 #include <iostream>
+#include <vk/common.h>
 
-#include "vk_pipeline.h"
+#include "pipeline.h"
 
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
+VkPipelineColorBlendAttachmentState vkinit::pipeline::color_blend_attachment_state() {
+    // describe a new color blend attachment state
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    // disable blending
+    colorBlendAttachment.blendEnable = VK_FALSE;
+
+    return colorBlendAttachment;
+}
+
+VkPipeline vkinit::pipeline::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
     // describe new viewport state
     VkPipelineViewportStateCreateInfo viewportState = {};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -41,7 +52,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass) {
 
     // create new pipeline and check - don't use VK_CHECK as errors are common
     VkPipeline newPipeline;
-    if(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
         std::cout << "Failed to create pipeline" << std::endl;
         return VK_NULL_HANDLE;
     } else {

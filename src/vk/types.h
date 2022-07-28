@@ -1,7 +1,6 @@
 ﻿#pragma once
 
-#include <vulkan/vulkan.h>
-#include <vk_mem_alloc.h>
+#include <vk/common.h>
 
 struct AllocatedBuffer {
     VkBuffer _buffer;

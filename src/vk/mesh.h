@@ -2,8 +2,8 @@
 
 #include <vector>
 #include <glm/vec3.hpp>
-
-#include "vk_types.h"
+#include <vk/common.h>
+#include <vk/types.h>
 
 struct VertexInputDescription {
     std::vector<VkVertexInputBindingDescription> bindings;
@@ -22,5 +22,6 @@ struct Vertex {
 struct Mesh {
     std::vector<Vertex> _vertices;
     AllocatedBuffer _vertexBuffer;
-    bool load_from_obj(const char* filename);
+
+    bool load_from_obj(const char *filename);
 };

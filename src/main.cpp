@@ -1,11 +1,11 @@
-#include <vk/vk_engine.h>
+#include <vk/renderer.h>
 
 int main(int argc, char *argv[]) {
-    VulkanEngine engine;
+    VkRenderer renderer;
 
-    engine.init();
-    engine.run();
-    engine.cleanup();
+    renderer.init();
+    renderer.run();
+    renderer.cleanup();
 
     return 0;
 }
