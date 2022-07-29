@@ -1,6 +1,6 @@
 ﻿#include "info.h"
 
-namespace vkinit::info {
+namespace VkRenderer::info {
     VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags) {
         // describe a new command pool
         VkCommandPoolCreateInfo info = {};

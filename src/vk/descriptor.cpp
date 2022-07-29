@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <vk/common.h>
-#include <vk/init/info.h>
+#include <vk/info.h>
 
 #include "descriptor.h"
 
-namespace vkinit::descriptor {
+namespace VkRenderer::descriptor {
     VkDescriptorPool Allocator::create_pool(int count, VkDescriptorPoolCreateFlags flags) {
         // create pool size array
         std::vector<VkDescriptorPoolSize> sizes;
@@ -14,7 +14,7 @@ namespace vkinit::descriptor {
         }
 
         // create the pool itself
-        VkDescriptorPoolCreateInfo poolInfo = vkinit::info::descriptor_pool_create_info(count, (uint32_t) sizes.size(), sizes.data(), flags);
+        VkDescriptorPoolCreateInfo poolInfo = VkRenderer::info::descriptor_pool_create_info(count, (uint32_t) sizes.size(), sizes.data(), flags);
         VkDescriptorPool descriptorPool;
         vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool);
 
@@ -46,7 +46,7 @@ namespace vkinit::descriptor {
         }
 
         // attempt to allocate set
-        VkDescriptorSetAllocateInfo allocInfo = vkinit::info::descriptor_set_allocate_info(currentPool, 1, &layout);
+        VkDescriptorSetAllocateInfo allocInfo = VkRenderer::info::descriptor_set_allocate_info(currentPool, 1, &layout);
         VkResult allocResult = vkAllocateDescriptorSets(device, &allocInfo, set);
 
         // check result
@@ -213,7 +213,7 @@ namespace vkinit::descriptor {
 
     bool Builder::build(VkDescriptorSet &set, VkDescriptorSetLayout &layout) {
         // build layout first
-        VkDescriptorSetLayoutCreateInfo layoutInfo = vkinit::info::descriptor_set_layout_create_info(bindings.size(), bindings.data());
+        VkDescriptorSetLayoutCreateInfo layoutInfo = VkRenderer::info::descriptor_set_layout_create_info(bindings.size(), bindings.data());
         layout = cache->create_descriptor_layout(&layoutInfo);
 
         // allocate descriptor

@@ -4,7 +4,7 @@
 #include <vector>
 #include <vk/common.h>
 
-namespace vkinit::descriptor {
+namespace VkRenderer::descriptor {
     class Allocator {
     public:
         struct PoolSizes {

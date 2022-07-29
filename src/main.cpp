@@ -1,7 +1,7 @@
 #include <vk/renderer.h>
 
 int main(int argc, char *argv[]) {
-    VkRenderer renderer;
+    VkRenderer::Renderer renderer;
 
     renderer.init();
     renderer.run();

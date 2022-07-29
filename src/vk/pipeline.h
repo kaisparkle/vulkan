@@ -3,7 +3,7 @@
 #include <vector>
 #include <vk/common.h>
 
-namespace vkinit::pipeline {
+namespace VkRenderer::pipeline {
     VkPipelineColorBlendAttachmentState color_blend_attachment_state();
 
     class PipelineBuilder {

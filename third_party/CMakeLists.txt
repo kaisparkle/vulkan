@@ -22,6 +22,19 @@ target_sources(tinyobjloader PRIVATE
         )
 target_include_directories(tinyobjloader PUBLIC tinyobjloader)
 
+add_library(imgui STATIC)
+target_sources(imgui PRIVATE
+        imgui/imgui.cpp
+        imgui/imgui_demo.cpp
+        imgui/imgui_draw.cpp
+        imgui/imgui_tables.cpp
+        imgui/imgui_widgets.cpp
+        imgui/backends/imgui_impl_vulkan.cpp
+        imgui/backends/imgui_impl_sdl.cpp
+        )
+target_include_directories(imgui PUBLIC imgui PUBLIC imgui/backends)
+target_link_libraries(imgui PUBLIC Vulkan::Vulkan sdl2)
+
 if(NOT DEFINED ENV{SDL2_PATH})
     message(FATAL_ERROR "Please set the SDL2_PATH environment variable.")
 endif()
