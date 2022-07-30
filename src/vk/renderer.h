@@ -26,6 +26,8 @@ namespace VkRenderer {
         MeshManager _meshManager;
         RenderObjectManager _renderObjectManager;
 
+        double _previousFrameTime;
+
         int _frameNumber = 0;
         FrameData _frames[FRAME_OVERLAP];
         Camera _camera;

@@ -33,8 +33,8 @@ namespace VkRenderer {
         _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
         _camera.projection = glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 200.0f);
         _camera.projection[1][1] *= -1;
-        _camera.speed = 0.1f;
-        _camera.sprint_multiplier = 1.0f;
+        _camera.velocity = 10.0f;
+        _camera.sprint_multiplier = 2.0f;
 
         init_vulkan();
         init_swapchain();
@@ -106,7 +106,6 @@ namespace VkRenderer {
         vkb::SwapchainBuilder swapchainBuilder{_chosenGPU, _device, _surface};
         vkb::Swapchain vkbSwapchain = swapchainBuilder
                 .use_default_format_selection()
-                        // hard vsync present
                 .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
                 .set_desired_extent(_windowExtent.width, _windowExtent.height)
                 .build()
@@ -542,19 +541,22 @@ namespace VkRenderer {
         VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
         VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
 
-        // check for camera movement
+        // start rendering the next frame
+        auto frameTimerStart = std::chrono::high_resolution_clock::now();
+
+        // check for camera movement - use previous frametime as a delta
         auto *keystate = const_cast<uint8_t *>(SDL_GetKeyboardState(nullptr));
         if (keystate[SDL_SCANCODE_LSHIFT]) {
             _camera.sprint_multiplier = 2.0f;
         } else {
             _camera.sprint_multiplier = 1.0f;
         }
-        if (keystate[SDL_SCANCODE_W]) _camera.position.z += _camera.speed * _camera.sprint_multiplier;
-        if (keystate[SDL_SCANCODE_A]) _camera.position.x += _camera.speed * _camera.sprint_multiplier;
-        if (keystate[SDL_SCANCODE_S]) _camera.position.z -= _camera.speed * _camera.sprint_multiplier;
-        if (keystate[SDL_SCANCODE_D]) _camera.position.x -= _camera.speed * _camera.sprint_multiplier;
-        if (keystate[SDL_SCANCODE_Q]) _camera.position.y += _camera.speed * _camera.sprint_multiplier;
-        if (keystate[SDL_SCANCODE_E]) _camera.position.y -= _camera.speed * _camera.sprint_multiplier;
+        if (keystate[SDL_SCANCODE_W]) _camera.position.z += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_A]) _camera.position.x += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_S]) _camera.position.z -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_D]) _camera.position.x -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_Q]) _camera.position.y += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_E]) _camera.position.y -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
         // update camera view
         _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
 
@@ -603,7 +605,13 @@ namespace VkRenderer {
         VkPresentInfoKHR presentInfo = VkRenderer::info::present_info(1, &_swapchain, 1, &get_current_frame()._renderSemaphore, &swapchainImageIndex);
         VK_CHECK(vkQueuePresentKHR(_graphicsQueue, &presentInfo));
 
+        // end the frame
         _frameNumber++;
+        auto frameTimerEnd = std::chrono::high_resolution_clock::now();
+
+        // convert the timer to double and store as previous time
+        std::chrono::duration<double, std::milli> frameDuration = frameTimerEnd - frameTimerStart;
+        _previousFrameTime = frameDuration.count();
     }
 
     void Renderer::run() {
