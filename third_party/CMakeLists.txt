@@ -35,6 +35,8 @@ target_sources(imgui PRIVATE
 target_include_directories(imgui PUBLIC imgui PUBLIC imgui/backends)
 target_link_libraries(imgui PUBLIC Vulkan::Vulkan sdl2)
 
+add_subdirectory(assimp)
+
 if(NOT DEFINED ENV{SDL2_PATH})
     message(FATAL_ERROR "Please set the SDL2_PATH environment variable.")
 endif()

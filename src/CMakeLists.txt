@@ -23,6 +23,6 @@ add_executable(${CMAKE_PROJECT_NAME}
 set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>")
 
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(${CMAKE_PROJECT_NAME} imgui tinyobjloader glm vma vk-bootstrap Vulkan::Vulkan sdl2)
+target_link_libraries(${CMAKE_PROJECT_NAME} assimp imgui tinyobjloader glm vma vk-bootstrap Vulkan::Vulkan sdl2)
 
 add_dependencies(${CMAKE_PROJECT_NAME} Shaders)
