@@ -1,11 +1,9 @@
 #include <iostream>
 #include <fstream>
-#include <vector>
-#include <vk/common.h>
+#include <vk/check.h>
 #include <vk/info.h>
 #include <vk/pipeline.h>
-#include <vk/mesh.h>
-#include <vk/check.h>
+#include <vk/vertex.h>
 
 #include "material.h"
 
@@ -75,7 +73,7 @@ namespace VkRenderer {
         pipelineBuilder._depthStencil = VkRenderer::info::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
 
         // add vertex description
-        VertexInputDescription vertexDescription = Vertex::get_vertex_description();
+        VertexInputDescription vertexDescription = VkRenderer::Vertex::get_vertex_description();
         pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
         pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.attributes.size();
         pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();

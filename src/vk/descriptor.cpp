@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <vk/common.h>
 #include <vk/info.h>
 
 #include "descriptor.h"

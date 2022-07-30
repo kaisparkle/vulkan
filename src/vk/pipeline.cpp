@@ -1,5 +1,4 @@
 #include <iostream>
-#include <vk/common.h>
 
 #include "pipeline.h"
 

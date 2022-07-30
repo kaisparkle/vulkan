@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 #include <vector>
-#include <vk/common.h>
+#include <vulkan/vulkan.h>
 
 namespace VkRenderer::descriptor {
     class Allocator {

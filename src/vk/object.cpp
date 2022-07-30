@@ -1,5 +1,3 @@
-#include <vk/common.h>
-
 #include "object.h"
 
 namespace VkRenderer {

@@ -1,25 +1,18 @@
-﻿#include <iostream>
-#include <fstream>
-#include <cmath>
+﻿#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
+#include <iostream>
 #include <SDL.h>
 #include <SDL_vulkan.h>
-#include <VkBootstrap.h>
 #include <glm/gtx/transform.hpp>
-#include <vk/common.h>
-#include <vk/info.h>
-#include <vk/pipeline.h>
-#include <vk/descriptor.h>
-#include <vk/check.h>
-#include <vk/types.h>
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
 #include <imgui_impl_vulkan.h>
+#include <VkBootstrap.h>
+#include <vk/check.h>
+#include <vk/info.h>
 
 #include "renderer.h"
-
-#define VMA_IMPLEMENTATION
-
-#include "vk_mem_alloc.h"
 
 namespace VkRenderer {
     void Renderer::init() {

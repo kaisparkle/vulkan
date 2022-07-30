@@ -4,9 +4,9 @@
 #include <unordered_map>
 #include <string>
 #include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
 #include <vk/mesh.h>
 #include <vk/material.h>
-#include <vk/common.h>
 
 namespace VkRenderer {
     struct RenderObject {

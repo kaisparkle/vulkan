@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include <vk/common.h>
+#include <vulkan/vulkan.h>
 
 namespace VkRenderer::pipeline {
     VkPipelineColorBlendAttachmentState color_blend_attachment_state();

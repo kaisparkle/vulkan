@@ -2,7 +2,7 @@
 
 #include <unordered_map>
 #include <string>
-#include <vk/common.h>
+#include <vulkan/vulkan.h>
 
 namespace VkRenderer {
     struct MaterialCreateInfo {

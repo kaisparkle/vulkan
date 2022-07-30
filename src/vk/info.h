@@ -1,6 +1,7 @@
 ﻿#pragma once
 
-#include <vk/common.h>
+#include <vulkan/vulkan.h>
+#include <vk_mem_alloc.h>
 
 namespace VkRenderer::info {
     VkCommandPoolCreateInfo command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);

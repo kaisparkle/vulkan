@@ -1,79 +1,13 @@
 ﻿#pragma once
 
-#include <vector>
 #include <functional>
-#include <deque>
-#include <glm/glm.hpp>
-#include <unordered_map>
-#include <string>
-#include <vk/common.h>
-#include <vk/types.h>
-#include <vk/mesh.h>
 #include <vk/material.h>
+#include <vk/mesh.h>
 #include <vk/object.h>
-#include <vk/descriptor.h>
+#include <vk/types.h>
 
 namespace VkRenderer {
     constexpr unsigned int FRAME_OVERLAP = 2;
-
-    struct Camera {
-        glm::vec3 position;
-        glm::mat4 view;
-        glm::mat4 projection;
-        float speed;
-        float sprint_multiplier;
-    };
-
-    struct GPUCameraData {
-        glm::mat4 view;
-        glm::mat4 proj;
-        glm::mat4 viewproj;
-    };
-
-    struct GPUSceneData {
-        glm::vec4 fogColor; // w for exponent
-        glm::vec4 fogDistances; // x for min, y for max, zw unusued
-        glm::vec4 ambientColor;
-        glm::vec4 sunlightDirection; // w for sun power
-        glm::vec4 sunlightColor;
-    };
-
-    struct GPUObjectData {
-        glm::mat4 modelMatrix;
-    };
-
-    struct FrameData {
-        VkSemaphore _presentSemaphore, _renderSemaphore;
-        VkFence _renderFence;
-        VkCommandPool _commandPool;
-        VkCommandBuffer _mainCommandBuffer;
-        AllocatedBuffer cameraBuffer;
-        AllocatedBuffer objectBuffer;
-        VkRenderer::descriptor::Allocator *_descriptorAllocator;
-    };
-
-    struct UploadContext {
-        VkFence _uploadFence;
-        VkCommandPool _commandPool;
-        VkCommandBuffer _commandBuffer;
-    };
-
-    struct DeletionQueue {
-        std::deque<std::function<void()>> deletors;
-
-        void push_function(std::function<void()> &&function) {
-            deletors.push_back(function);
-        }
-
-        void flush() {
-            // reverse iterate deletion queue and call all functions
-            for (auto i = deletors.rbegin(); i != deletors.rend(); i++) {
-                (*i)();
-            }
-
-            deletors.clear();
-        }
-    };
 
     class Renderer {
     public:

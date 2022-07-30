@@ -1,13 +1,14 @@
 # Add source to this project's executable.
 add_executable(${CMAKE_PROJECT_NAME}
         main.cpp
-        vk/common.h
         vk/info.cpp
         vk/info.h
         vk/pipeline.cpp
         vk/pipeline.h
         vk/descriptor.cpp
         vk/descriptor.h
+        vk/vertex.cpp
+        vk/vertex.h
         vk/mesh.cpp
         vk/mesh.h
         vk/material.cpp

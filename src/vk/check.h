@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vk/common.h>
+#include <vulkan/vulkan.h>
 
 namespace VkRenderer {
 #define VK_CHECK(x)                                                    \
