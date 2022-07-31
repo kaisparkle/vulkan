@@ -22,6 +22,8 @@ namespace VkRenderer {
         glm::vec3 position;
         glm::mat4 view;
         glm::mat4 projection;
+        float angle;
+        float rotateVelocity;
         float velocity;
         float sprint_multiplier;
     };

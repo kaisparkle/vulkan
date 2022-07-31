@@ -3,7 +3,7 @@
 #include <functional>
 #include <vk/material.h>
 #include <vk/mesh.h>
-#include <vk/object.h>
+#include <vk/entity.h>
 #include <vk/types.h>
 
 namespace VkRenderer {
@@ -23,8 +23,7 @@ namespace VkRenderer {
         struct SDL_Window *_window{nullptr};
 
         MaterialManager _materialManager;
-        MeshManager _meshManager;
-        RenderObjectManager _renderObjectManager;
+        EntityManager _entityManager;
 
         double _previousFrameTime;
 
@@ -73,11 +72,9 @@ namespace VkRenderer {
 
         void init_descriptors();
 
-        void init_pipelines();
+        void init_materials();
 
         void init_imgui();
-
-        void load_meshes();
 
         void upload_mesh(Mesh *mesh);
 

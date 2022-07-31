@@ -31,9 +31,11 @@ namespace VkRenderer {
         // initialize camera defaults
         _camera.position = {0.0f, 0.0f, -2.0f};
         _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
-        _camera.projection = glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 200.0f);
+        _camera.projection = glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 20000.0f);
         _camera.projection[1][1] *= -1;
-        _camera.velocity = 10.0f;
+        _camera.angle = 0.0f;
+        _camera.rotateVelocity = 10.0f;
+        _camera.velocity = 100.0f;
         _camera.sprint_multiplier = 2.0f;
 
         init_vulkan();
@@ -43,9 +45,8 @@ namespace VkRenderer {
         init_framebuffers();
         init_sync_structures();
         init_descriptors();
-        init_pipelines();
+        init_materials();
         init_imgui();
-        load_meshes();
         init_scene();
 
         _isInitialized = true;
@@ -303,7 +304,7 @@ namespace VkRenderer {
         }
     }
 
-    void Renderer::init_pipelines() {
+    void Renderer::init_materials() {
         // create default material
         VkDescriptorSetLayout setLayouts[] = {_globalSetLayout, _objectSetLayout};
         MaterialCreateInfo materialInfo = {};
@@ -376,14 +377,6 @@ namespace VkRenderer {
         });
     }
 
-    void Renderer::load_meshes() {
-        // create mesh
-        _meshManager.create_mesh("../assets/monkey_smooth.obj", "monkey");
-
-        // upload mesh to GPU
-        upload_mesh(_meshManager.get_mesh("monkey"));
-    }
-
     void Renderer::upload_mesh(Mesh *mesh) {
         // allocate the vertex buffer and check
         VkBufferCreateInfo bufferInfo = VkRenderer::info::buffer_create_info(mesh->_vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -402,6 +395,30 @@ namespace VkRenderer {
         vmaMapMemory(_allocator, mesh->_vertexBuffer._allocation, &data);
         memcpy(data, mesh->_vertices.data(), mesh->_vertices.size() * sizeof(Vertex));
         vmaUnmapMemory(_allocator, mesh->_vertexBuffer._allocation);
+
+        // allocate index buffer
+        VkBufferCreateInfo indexBufferInfo = VkRenderer::info::buffer_create_info(mesh->_indices.size() * sizeof(uint16_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+        VmaAllocationCreateInfo vmaIndexAllocInfo = VkRenderer::info::allocation_create_info(VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
+        VK_CHECK(vmaCreateBuffer(_allocator, &indexBufferInfo, &vmaIndexAllocInfo,
+            &mesh->_indexBuffer._buffer,
+            &mesh->_indexBuffer._allocation,
+            nullptr));
+        _mainDeletionQueue.push_function([=]() {
+            vmaDestroyBuffer(_allocator, mesh->_indexBuffer._buffer, mesh->_indexBuffer._allocation);
+            });
+
+        // copy
+        void* indexData;
+        vmaMapMemory(_allocator, mesh->_indexBuffer._allocation, &indexData);
+        memcpy(indexData, mesh->_indices.data(), mesh->_indices.size() * sizeof(uint16_t));
+        vmaUnmapMemory(_allocator, mesh->_indexBuffer._allocation);
+    }
+
+    void Renderer::init_scene() {
+        _entityManager.create_entity("../assets/sponza-gltf-pbr/sponza.glb", "sponza");
+        for(auto & mesh : _entityManager.get_entity("sponza")->_meshes) {
+            upload_mesh(&mesh);
+        }
     }
 
     AllocatedBuffer Renderer::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
@@ -446,20 +463,6 @@ namespace VkRenderer {
         vkResetCommandPool(_device, _uploadContext._commandPool, 0);
     }
 
-    void Renderer::init_scene() {
-        glm::mat4 transformMatrix = glm::mat4{1.0f};
-        _renderObjectManager.create_render_object(_meshManager.get_mesh("monkey"), _materialManager.get_material("static"), transformMatrix);
-
-        for (int x = -20; x <= 20; x++) {
-            for (int y = -20; y <= 20; y++) {
-                glm::mat4 translation = glm::translate(glm::mat4{1.0f}, glm::vec3(x, 0.0f, y));
-                glm::mat4 scale = glm::scale(glm::mat4{1.0f}, glm::vec3{0.2f, 0.2f, 0.2f});
-                transformMatrix = translation * scale;
-                _renderObjectManager.create_render_object(_meshManager.get_mesh("monkey"), _materialManager.get_material("default_mesh"), transformMatrix);
-            }
-        }
-    }
-
     FrameData &Renderer::get_current_frame() {
         return _frames[_frameNumber % FRAME_OVERLAP];
     }
@@ -476,8 +479,7 @@ namespace VkRenderer {
         vmaUnmapMemory(_allocator, get_current_frame().cameraBuffer._allocation);
 
         // set up scene parameters and copy
-        float framed = (_frameNumber / 120.0f);
-        _sceneParameters.ambientColor = {sin(framed), 0, cos(framed), 1};
+        _sceneParameters.ambientColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
         char *sceneData;
         vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void **) &sceneData);
         int frameIndex = _frameNumber % FRAME_OVERLAP;
@@ -505,29 +507,27 @@ namespace VkRenderer {
                 .build(objectSet);
 
         Mesh *lastMesh = nullptr;
-        Material *lastMaterial = nullptr;
-        for (size_t i = 0; i < _renderObjectManager.get_count(); i++) {
-            RenderObject *object = _renderObjectManager.get_render_object(i);
-            objectSSBO[i].modelMatrix = object->transformMatrix;
-            if (object->material != lastMaterial) {
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipeline);
-                lastMaterial = object->material;
+        Entity *sponzaEntity = _entityManager.get_entity("sponza");
+        Material *defaultMaterial = _materialManager.get_material("default_mesh");
 
-                // calculate scene buffer offset and bind global set
-                uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipelineLayout, 0, 1, &globalSet, 1, &uniform_offset);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipeline);
+        // calculate scene buffer offset and bind global set
+        uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 0, 1, &globalSet, 1, &uniform_offset);
+        // bind object data set
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 1, 1, &objectSet, 0, nullptr);
 
-                // bind object data set
-                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipelineLayout, 1, 1, &objectSet, 0, nullptr);
-            }
+        for (size_t i = 0; i < sponzaEntity->_meshes.size(); i++) {
+            objectSSBO[i].modelMatrix = sponzaEntity->transform;
 
-            if (object->mesh != lastMesh) {
+            if (&sponzaEntity->_meshes[i] != lastMesh) {
                 VkDeviceSize offset = 0;
-                vkCmdBindVertexBuffers(cmd, 0, 1, &object->mesh->_vertexBuffer._buffer, &offset);
-                lastMesh = object->mesh;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &sponzaEntity->_meshes[i]._vertexBuffer._buffer, &offset);
+                vkCmdBindIndexBuffer(cmd, sponzaEntity->_meshes[i]._indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
+                lastMesh = &sponzaEntity->_meshes[i];
             }
 
-            vkCmdDraw(cmd, object->mesh->_vertices.size(), 1, 0, i);
+            vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sponzaEntity->_meshes[i]._indices.size()), 1, 0, 0, 0);
         }
 
         vmaUnmapMemory(_allocator, get_current_frame().objectBuffer._allocation);
@@ -557,8 +557,10 @@ namespace VkRenderer {
         if (keystate[SDL_SCANCODE_D]) _camera.position.x -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
         if (keystate[SDL_SCANCODE_Q]) _camera.position.y += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
         if (keystate[SDL_SCANCODE_E]) _camera.position.y -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_LEFT]) _camera.angle -= _camera.rotateVelocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
+        if (keystate[SDL_SCANCODE_RIGHT]) _camera.angle += _camera.rotateVelocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
         // update camera view
-        _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
+        _camera.view = glm::rotate(glm::translate(glm::mat4(1.0f), _camera.position), _camera.angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
         // grab image from swapchain, timeout 1sec
         uint32_t swapchainImageIndex;

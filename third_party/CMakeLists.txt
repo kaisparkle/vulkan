@@ -15,13 +15,6 @@ target_include_directories(vma INTERFACE VulkanMemoryAllocator/include)
 add_library(glm INTERFACE)
 target_include_directories(glm INTERFACE glm)
 
-add_library(tinyobjloader STATIC)
-target_sources(tinyobjloader PRIVATE
-        tinyobjloader/tiny_obj_loader.h
-        tinyobjloader/tiny_obj_loader.cc
-        )
-target_include_directories(tinyobjloader PUBLIC tinyobjloader)
-
 add_library(imgui STATIC)
 target_sources(imgui PRIVATE
         imgui/imgui.cpp
