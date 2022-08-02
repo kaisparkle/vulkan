@@ -54,7 +54,6 @@ namespace VkRenderer {
         std::vector<VkFramebuffer> _framebuffers;
         VkRenderer::descriptor::LayoutCache *_descriptorLayoutCache;
         VkDescriptorSetLayout _globalSetLayout;
-        VkDescriptorSetLayout _objectSetLayout;
         AllocatedBuffer _sceneParameterBuffer;
 
         void init_vulkan();

@@ -16,12 +16,13 @@ namespace VkRenderer {
 
         void upload_meshes(VmaAllocator &allocator, DeletionQueue &deletionQueue);
 
-        void set_transform(glm::mat4 newTransform);
+        void set_model_matrix(glm::mat4 newModelMatrix);
 
-        void draw_model(VkCommandBuffer cmd, GPUObjectData *objectSSBO, uint32_t base);
+        void draw_model(VkCommandBuffer cmd);
 
-        glm::mat4 _transform = glm::mat4{1.0f};
+        glm::mat4 _modelMatrix = glm::mat4{1.0f};
         std::vector<Mesh> _meshes;
+        Material *_defaultMaterial;
 
     private:
 
@@ -34,6 +35,6 @@ namespace VkRenderer {
     public:
         std::unordered_map<std::string, Model> models;
 
-        Model *create_model(const std::string &filePath, const std::string &name, VmaAllocator &allocator, DeletionQueue &deletionQueue);
+        Model *create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, DeletionQueue &deletionQueue);
     };
 }

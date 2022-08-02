@@ -42,17 +42,12 @@ namespace VkRenderer {
         glm::vec4 sunlightColor;
     };
 
-    struct GPUObjectData {
-        glm::mat4 modelMatrix;
-    };
-
     struct FrameData {
         VkSemaphore _presentSemaphore, _renderSemaphore;
         VkFence _renderFence;
         VkCommandPool _commandPool;
         VkCommandBuffer _mainCommandBuffer;
         AllocatedBuffer cameraBuffer;
-        AllocatedBuffer objectBuffer;
         VkRenderer::descriptor::Allocator *_descriptorAllocator;
     };
 
@@ -60,6 +55,11 @@ namespace VkRenderer {
         VkFence _uploadFence;
         VkCommandPool _commandPool;
         VkCommandBuffer _commandBuffer;
+    };
+
+    struct MatrixPushConstant {
+        glm::vec4 data;
+        glm::mat4 matrix;
     };
 
     struct DeletionQueue {

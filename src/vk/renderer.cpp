@@ -1,4 +1,5 @@
 ﻿#define VMA_IMPLEMENTATION
+
 #include <vk_mem_alloc.h>
 
 #include <iostream>
@@ -271,11 +272,6 @@ namespace VkRenderer {
         VkDescriptorSetLayoutCreateInfo globalLayoutInfo = VkRenderer::info::descriptor_set_layout_create_info(2, bindings, 0);
         _globalSetLayout = _descriptorLayoutCache->create_descriptor_layout(&globalLayoutInfo);
 
-        // create object set layout
-        VkDescriptorSetLayoutBinding objectBind = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
-        VkDescriptorSetLayoutCreateInfo objectLayoutInfo = VkRenderer::info::descriptor_set_layout_create_info(1, &objectBind, 0);
-        _objectSetLayout = _descriptorLayoutCache->create_descriptor_layout(&objectLayoutInfo);
-
         // create scene parameter buffer
         const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
         _sceneParameterBuffer = create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -289,13 +285,6 @@ namespace VkRenderer {
             _frame._descriptorAllocator = new VkRenderer::descriptor::Allocator{};
             _frame._descriptorAllocator->init(_device);
 
-            // create object buffer
-            const int MAX_OBJECTS = 10000;
-            _frame.objectBuffer = create_buffer(sizeof(GPUObjectData) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-            _mainDeletionQueue.push_function([=]() {
-                vmaDestroyBuffer(_allocator, _frame.objectBuffer._buffer, _frame.objectBuffer._allocation);
-            });
-
             // create camera buffer
             _frame.cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
             _mainDeletionQueue.push_function([=]() {
@@ -306,11 +295,11 @@ namespace VkRenderer {
 
     void Renderer::init_materials() {
         // create default material
-        VkDescriptorSetLayout setLayouts[] = {_globalSetLayout, _objectSetLayout};
+        VkDescriptorSetLayout setLayouts[] = {_globalSetLayout};
         MaterialCreateInfo materialInfo = {};
         materialInfo.vertShaderPath = "../shaders/default_mesh.vert.spv";
         materialInfo.fragShaderPath = "../shaders/default_lit.frag.spv";
-        materialInfo.setLayoutCount = 2;
+        materialInfo.setLayoutCount = 1;
         materialInfo.setLayouts = setLayouts;
         materialInfo.device = _device;
         materialInfo.extent = _windowExtent;
@@ -400,25 +389,25 @@ namespace VkRenderer {
         VkBufferCreateInfo indexBufferInfo = VkRenderer::info::buffer_create_info(mesh->_indices.size() * sizeof(uint16_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
         VmaAllocationCreateInfo vmaIndexAllocInfo = VkRenderer::info::allocation_create_info(VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
         VK_CHECK(vmaCreateBuffer(_allocator, &indexBufferInfo, &vmaIndexAllocInfo,
-            &mesh->_indexBuffer._buffer,
-            &mesh->_indexBuffer._allocation,
-            nullptr));
+                                 &mesh->_indexBuffer._buffer,
+                                 &mesh->_indexBuffer._allocation,
+                                 nullptr));
         _mainDeletionQueue.push_function([=]() {
             vmaDestroyBuffer(_allocator, mesh->_indexBuffer._buffer, mesh->_indexBuffer._allocation);
-            });
+        });
 
         // copy
-        void* indexData;
+        void *indexData;
         vmaMapMemory(_allocator, mesh->_indexBuffer._allocation, &indexData);
         memcpy(indexData, mesh->_indices.data(), mesh->_indices.size() * sizeof(uint16_t));
         vmaUnmapMemory(_allocator, mesh->_indexBuffer._allocation);
     }
 
     void Renderer::init_scene() {
-        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "helmet", _allocator, _mainDeletionQueue);
-        _modelManager.models["helmet"].set_transform(glm::translate(glm::scale(glm::mat4{1.0f}, glm::vec3(0.01f, 0.01f, 0.01f)), glm::vec3(0.0f, 2.0f, 0.0f)));
-        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _allocator, _mainDeletionQueue);
-        _modelManager.models["sponza"].set_transform(glm::scale(glm::mat4{1.0f}, glm::vec3(0.1f, 0.1f, 0.1f)));
+        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
+        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
+        _modelManager.models["sponza"].set_model_matrix(glm::scale(glm::mat4{1.0f}, glm::vec3(0.1f, 0.1f, 0.1f)));
+        _modelManager.models["helmet"].set_model_matrix(glm::scale(glm::mat4{1.0f}, glm::vec3(10.0f, 10.0f, 10.0f)));
     }
 
     AllocatedBuffer Renderer::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
@@ -490,38 +479,21 @@ namespace VkRenderer {
         // get buffer infos and build sets
         VkDescriptorBufferInfo camBufferInfo = VkRenderer::info::descriptor_buffer_info(get_current_frame().cameraBuffer._buffer, 0, sizeof(GPUCameraData));
         VkDescriptorBufferInfo sceneBufferInfo = VkRenderer::info::descriptor_buffer_info(_sceneParameterBuffer._buffer, 0, sizeof(GPUSceneData));
-        VkDescriptorBufferInfo objectBufferInfo = VkRenderer::info::descriptor_buffer_info(get_current_frame().objectBuffer._buffer, 0, sizeof(GPUObjectData) * 10000);
         VkDescriptorSet globalSet;
         VkRenderer::descriptor::Builder::begin(_descriptorLayoutCache, get_current_frame()._descriptorAllocator)
                 .bind_buffer(0, &camBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
                 .bind_buffer(1, &sceneBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(globalSet);
-        VkDescriptorSet objectSet;
-        VkRenderer::descriptor::Builder::begin(_descriptorLayoutCache, get_current_frame()._descriptorAllocator)
-                .bind_buffer(0, &objectBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-                .build(objectSet);
 
         Material *defaultMaterial = _materialManager.get_material("default_mesh");
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipeline);
         // calculate scene buffer offset and bind global set
         uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 0, 1, &globalSet, 1, &uniform_offset);
-        // bind object data set
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 1, 1, &objectSet, 0, nullptr);
 
-        // set up object model matrix buffer
-        void *objectData;
-        vmaMapMemory(_allocator, get_current_frame().objectBuffer._allocation, &objectData);
-        auto *objectSSBO = (GPUObjectData *) objectData;
-
-        // loop through models - count the number of meshes + 1 of previous model, model draw will add the current mesh number and pass it to drawcall as the instance
-        uint32_t meshCount = 0;
-        for (auto & it : _modelManager.models) {
-            it.second.draw_model(cmd, objectSSBO, meshCount);
-            meshCount += it.second._meshes.size() + 1;
+        for (auto &it: _modelManager.models) {
+            it.second.draw_model(cmd);
         }
-
-        vmaUnmapMemory(_allocator, get_current_frame().objectBuffer._allocation);
     }
 
     void Renderer::draw() {

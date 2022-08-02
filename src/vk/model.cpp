@@ -18,15 +18,13 @@ namespace VkRenderer {
         process_node(modelScene->mRootNode, modelScene);
     }
 
-    void Model::set_transform(glm::mat4 newTransform) {
-        _transform = newTransform;
+    void Model::set_model_matrix(glm::mat4 newModelMatrix) {
+        _modelMatrix = newModelMatrix;
     }
 
-    void Model::draw_model(VkCommandBuffer cmd, GPUObjectData *objectSSBO, uint32_t base) {
-        for (size_t i = 0; i < _meshes.size(); i++) {
-            // add the transform matrix to each mesh's SSBO slot
-            objectSSBO[base + i].modelMatrix = _transform;
-            _meshes[i].draw_mesh(cmd, base + i);
+    void Model::draw_model(VkCommandBuffer cmd) {
+        for (auto &mesh: _meshes) {
+            mesh.draw_mesh(cmd, _modelMatrix);
         }
     }
 
@@ -42,6 +40,7 @@ namespace VkRenderer {
 
     Mesh Model::process_mesh(aiMesh *mesh, const aiScene *scene) {
         Mesh newMesh;
+        newMesh._material = _defaultMaterial;
         for (size_t i = 0; i < mesh->mNumVertices; i++) {
             Vertex newVertex;
             newVertex.position.x = mesh->mVertices[i].x;
@@ -75,8 +74,9 @@ namespace VkRenderer {
         }
     }
 
-    Model *ModelManager::create_model(const std::string &filePath, const std::string &name, VmaAllocator &allocator, DeletionQueue &deletionQueue) {
+    Model *ModelManager::create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, DeletionQueue &deletionQueue) {
         Model newModel;
+        newModel._defaultMaterial = defaultMaterial;
         newModel.set_model(filePath);
         newModel.upload_meshes(allocator, deletionQueue);
         models[name] = newModel;

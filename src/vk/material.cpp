@@ -4,6 +4,7 @@
 #include <vk/info.h>
 #include <vk/pipeline.h>
 #include <vk/vertex.h>
+#include <vk/types.h>
 
 #include "material.h"
 
@@ -26,6 +27,14 @@ namespace VkRenderer {
         // build the pipeline layout
         VkPipelineLayout pipelineLayout;
         VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = VkRenderer::info::pipeline_layout_create_info();
+
+        // set push constants
+        VkPushConstantRange pushConstant;
+        pushConstant.offset = 0;
+        pushConstant.size = sizeof(MatrixPushConstant);
+        pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        mesh_pipeline_layout_info.pPushConstantRanges = &pushConstant;
+        mesh_pipeline_layout_info.pushConstantRangeCount = 1;
 
         // set descriptor set layouts
         mesh_pipeline_layout_info.setLayoutCount = info->setLayoutCount;

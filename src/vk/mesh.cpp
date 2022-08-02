@@ -42,10 +42,16 @@ namespace VkRenderer {
         vmaUnmapMemory(allocator, _indexBuffer._allocation);
     }
 
-    void Mesh::draw_mesh(VkCommandBuffer cmd, uint32_t instance) {
+    void Mesh::draw_mesh(VkCommandBuffer cmd, glm::mat4 modelMatrix) {
+        // push model matrix through push constant
+        MatrixPushConstant constant{};
+        constant.matrix = modelMatrix;
+        vkCmdPushConstants(cmd, _material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MatrixPushConstant), &constant);
+
+        // bind buffers and draw
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
         vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
-        vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, instance);
+        vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
     }
 }

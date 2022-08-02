@@ -12,18 +12,13 @@ layout (set = 0, binding = 0) uniform CameraBuffer {
     mat4 viewproj;
 } cameraData;
 
-struct ObjectData {
-    mat4 model;
-};
-
-// all object matrices
-layout (std140, set = 1, binding = 0) readonly buffer ObjectBuffer {
-    ObjectData objects[];
-} objectBuffer;
+layout (push_constant) uniform constants {
+    vec4 data;
+    mat4 matrix;
+} pushConstant;
 
 void main() {
-    mat4 modelMatrix = objectBuffer.objects[gl_BaseInstance].model;
-    mat4 transformMatrix = (cameraData.viewproj * modelMatrix);
+    mat4 transformMatrix = (cameraData.viewproj * pushConstant.matrix);
     gl_Position = transformMatrix * vec4(vPosition, 1.0f);
     outColor = vColor;
 }
