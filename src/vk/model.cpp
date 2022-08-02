@@ -1,11 +1,12 @@
 #include <iostream>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
+#include <vk/check.h>
 
-#include "entity.h"
+#include "model.h"
 
 namespace VkRenderer {
-    void Entity::load_model(const std::string &filePath) {
+    void Model::set_model(const std::string &filePath) {
         Assimp::Importer importer;
         const aiScene *modelScene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_FlipUVs);
 
@@ -17,7 +18,19 @@ namespace VkRenderer {
         process_node(modelScene->mRootNode, modelScene);
     }
 
-    void Entity::process_node(aiNode *node, const aiScene *scene) {
+    void Model::set_transform(glm::mat4 newTransform) {
+        _transform = newTransform;
+    }
+
+    void Model::draw_model(VkCommandBuffer cmd, GPUObjectData *objectSSBO, uint32_t base) {
+        for (size_t i = 0; i < _meshes.size(); i++) {
+            // add the transform matrix to each mesh's SSBO slot
+            objectSSBO[base + i].modelMatrix = _transform;
+            _meshes[i].draw_mesh(cmd, base + i);
+        }
+    }
+
+    void Model::process_node(aiNode *node, const aiScene *scene) {
         for (size_t i = 0; i < node->mNumMeshes; i++) {
             aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
             _meshes.push_back(process_mesh(mesh, scene));
@@ -27,7 +40,7 @@ namespace VkRenderer {
         }
     }
 
-    Mesh Entity::process_mesh(aiMesh *mesh, const aiScene *scene) {
+    Mesh Model::process_mesh(aiMesh *mesh, const aiScene *scene) {
         Mesh newMesh;
         for (size_t i = 0; i < mesh->mNumVertices; i++) {
             Vertex newVertex;
@@ -56,14 +69,17 @@ namespace VkRenderer {
         return newMesh;
     }
 
-    Entity *EntityManager::create_entity(const std::string &filePath, const std::string &name) {
-        Entity newEntity;
-        newEntity.load_model(filePath);
-        _entities[name] = newEntity;
-        return &_entities[name];
+    void Model::upload_meshes(VmaAllocator &allocator, DeletionQueue &deletionQueue) {
+        for (auto &mesh: _meshes) {
+            mesh.upload_mesh(allocator, deletionQueue);
+        }
     }
 
-    Entity *EntityManager::get_entity(const std::string &name) {
-        return &_entities[name];
+    Model *ModelManager::create_model(const std::string &filePath, const std::string &name, VmaAllocator &allocator, DeletionQueue &deletionQueue) {
+        Model newModel;
+        newModel.set_model(filePath);
+        newModel.upload_meshes(allocator, deletionQueue);
+        models[name] = newModel;
+        return &models[name];
     }
 }

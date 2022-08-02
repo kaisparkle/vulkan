@@ -415,10 +415,10 @@ namespace VkRenderer {
     }
 
     void Renderer::init_scene() {
-        _entityManager.create_entity("../assets/sponza-gltf-pbr/sponza.glb", "sponza");
-        for(auto & mesh : _entityManager.get_entity("sponza")->_meshes) {
-            upload_mesh(&mesh);
-        }
+        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "helmet", _allocator, _mainDeletionQueue);
+        _modelManager.models["helmet"].set_transform(glm::translate(glm::scale(glm::mat4{1.0f}, glm::vec3(0.01f, 0.01f, 0.01f)), glm::vec3(0.0f, 2.0f, 0.0f)));
+        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _allocator, _mainDeletionQueue);
+        _modelManager.models["sponza"].set_transform(glm::scale(glm::mat4{1.0f}, glm::vec3(0.1f, 0.1f, 0.1f)));
     }
 
     AllocatedBuffer Renderer::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
@@ -487,11 +487,6 @@ namespace VkRenderer {
         memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
         vmaUnmapMemory(_allocator, _sceneParameterBuffer._allocation);
 
-        // set up object model matrix buffer
-        void *objectData;
-        vmaMapMemory(_allocator, get_current_frame().objectBuffer._allocation, &objectData);
-        auto *objectSSBO = (GPUObjectData *) objectData;
-
         // get buffer infos and build sets
         VkDescriptorBufferInfo camBufferInfo = VkRenderer::info::descriptor_buffer_info(get_current_frame().cameraBuffer._buffer, 0, sizeof(GPUCameraData));
         VkDescriptorBufferInfo sceneBufferInfo = VkRenderer::info::descriptor_buffer_info(_sceneParameterBuffer._buffer, 0, sizeof(GPUSceneData));
@@ -506,10 +501,7 @@ namespace VkRenderer {
                 .bind_buffer(0, &objectBufferInfo, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
                 .build(objectSet);
 
-        Mesh *lastMesh = nullptr;
-        Entity *sponzaEntity = _entityManager.get_entity("sponza");
         Material *defaultMaterial = _materialManager.get_material("default_mesh");
-
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipeline);
         // calculate scene buffer offset and bind global set
         uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
@@ -517,17 +509,16 @@ namespace VkRenderer {
         // bind object data set
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 1, 1, &objectSet, 0, nullptr);
 
-        for (size_t i = 0; i < sponzaEntity->_meshes.size(); i++) {
-            objectSSBO[i].modelMatrix = sponzaEntity->transform;
+        // set up object model matrix buffer
+        void *objectData;
+        vmaMapMemory(_allocator, get_current_frame().objectBuffer._allocation, &objectData);
+        auto *objectSSBO = (GPUObjectData *) objectData;
 
-            if (&sponzaEntity->_meshes[i] != lastMesh) {
-                VkDeviceSize offset = 0;
-                vkCmdBindVertexBuffers(cmd, 0, 1, &sponzaEntity->_meshes[i]._vertexBuffer._buffer, &offset);
-                vkCmdBindIndexBuffer(cmd, sponzaEntity->_meshes[i]._indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
-                lastMesh = &sponzaEntity->_meshes[i];
-            }
-
-            vkCmdDrawIndexed(cmd, static_cast<uint32_t>(sponzaEntity->_meshes[i]._indices.size()), 1, 0, 0, 0);
+        // loop through models - count the number of meshes + 1 of previous model, model draw will add the current mesh number and pass it to drawcall as the instance
+        uint32_t meshCount = 0;
+        for (auto & it : _modelManager.models) {
+            it.second.draw_model(cmd, objectSSBO, meshCount);
+            meshCount += it.second._meshes.size() + 1;
         }
 
         vmaUnmapMemory(_allocator, get_current_frame().objectBuffer._allocation);

@@ -9,11 +9,12 @@ add_executable(${CMAKE_PROJECT_NAME}
         vk/descriptor.h
         vk/vertex.cpp
         vk/vertex.h
+        vk/mesh.cpp
         vk/mesh.h
         vk/material.cpp
         vk/material.h
-        vk/entity.cpp
-        vk/entity.h
+        vk/model.cpp
+        vk/model.h
         vk/types.h
         vk/check.h
         vk/renderer.cpp

@@ -2,8 +2,7 @@
 
 #include <functional>
 #include <vk/material.h>
-#include <vk/mesh.h>
-#include <vk/entity.h>
+#include <vk/model.h>
 #include <vk/types.h>
 
 namespace VkRenderer {
@@ -23,7 +22,7 @@ namespace VkRenderer {
         struct SDL_Window *_window{nullptr};
 
         MaterialManager _materialManager;
-        EntityManager _entityManager;
+        ModelManager _modelManager;
 
         double _previousFrameTime;
 
