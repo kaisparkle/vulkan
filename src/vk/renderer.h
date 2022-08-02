@@ -4,6 +4,7 @@
 #include <vk/material.h>
 #include <vk/model.h>
 #include <vk/types.h>
+#include <camera.h>
 
 namespace VkRenderer {
     constexpr unsigned int FRAME_OVERLAP = 2;
@@ -20,6 +21,8 @@ namespace VkRenderer {
         bool _isInitialized = false;
 
         struct SDL_Window *_window{nullptr};
+        FlyCamera *_flyCamera;
+        bool _toggleUI = true;
 
         MaterialManager _materialManager;
         ModelManager _modelManager;
@@ -28,7 +31,6 @@ namespace VkRenderer {
 
         int _frameNumber = 0;
         FrameData _frames[FRAME_OVERLAP];
-        Camera _camera;
         GPUSceneData _sceneParameters;
         UploadContext _uploadContext;
 
@@ -73,8 +75,6 @@ namespace VkRenderer {
         void init_materials();
 
         void init_imgui();
-
-        void upload_mesh(Mesh *mesh);
 
         void init_scene();
 

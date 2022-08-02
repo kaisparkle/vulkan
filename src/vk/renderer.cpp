@@ -28,16 +28,11 @@ namespace VkRenderer {
                 _windowExtent.height,
                 window_flags
         );
+        SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
+        SDL_SetRelativeMouseMode(SDL_TRUE);
 
-        // initialize camera defaults
-        _camera.position = {0.0f, 0.0f, -2.0f};
-        _camera.view = glm::translate(glm::mat4(1.0f), _camera.position);
-        _camera.projection = glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 20000.0f);
-        _camera.projection[1][1] *= -1;
-        _camera.angle = 0.0f;
-        _camera.rotateVelocity = 10.0f;
-        _camera.velocity = 100.0f;
-        _camera.sprint_multiplier = 2.0f;
+        // initialize camera
+        _flyCamera = new FlyCamera(glm::perspective(glm::radians(90.0f), (float) _windowExtent.width / (float) _windowExtent.height, 0.1f, 2000.0f));
 
         init_vulkan();
         init_swapchain();
@@ -366,43 +361,6 @@ namespace VkRenderer {
         });
     }
 
-    void Renderer::upload_mesh(Mesh *mesh) {
-        // allocate the vertex buffer and check
-        VkBufferCreateInfo bufferInfo = VkRenderer::info::buffer_create_info(mesh->_vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-        VmaAllocationCreateInfo vmaAllocInfo = VkRenderer::info::allocation_create_info(VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
-        VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaAllocInfo,
-                                 &mesh->_vertexBuffer._buffer,
-                                 &mesh->_vertexBuffer._allocation,
-                                 nullptr));
-
-        _mainDeletionQueue.push_function([=]() {
-            vmaDestroyBuffer(_allocator, mesh->_vertexBuffer._buffer, mesh->_vertexBuffer._allocation);
-        });
-
-        // copy vertex data into new buffer - map to pointer, write, unmap
-        void *data;
-        vmaMapMemory(_allocator, mesh->_vertexBuffer._allocation, &data);
-        memcpy(data, mesh->_vertices.data(), mesh->_vertices.size() * sizeof(Vertex));
-        vmaUnmapMemory(_allocator, mesh->_vertexBuffer._allocation);
-
-        // allocate index buffer
-        VkBufferCreateInfo indexBufferInfo = VkRenderer::info::buffer_create_info(mesh->_indices.size() * sizeof(uint16_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-        VmaAllocationCreateInfo vmaIndexAllocInfo = VkRenderer::info::allocation_create_info(VMA_MEMORY_USAGE_CPU_TO_GPU, 0);
-        VK_CHECK(vmaCreateBuffer(_allocator, &indexBufferInfo, &vmaIndexAllocInfo,
-                                 &mesh->_indexBuffer._buffer,
-                                 &mesh->_indexBuffer._allocation,
-                                 nullptr));
-        _mainDeletionQueue.push_function([=]() {
-            vmaDestroyBuffer(_allocator, mesh->_indexBuffer._buffer, mesh->_indexBuffer._allocation);
-        });
-
-        // copy
-        void *indexData;
-        vmaMapMemory(_allocator, mesh->_indexBuffer._allocation, &indexData);
-        memcpy(indexData, mesh->_indices.data(), mesh->_indices.size() * sizeof(uint16_t));
-        vmaUnmapMemory(_allocator, mesh->_indexBuffer._allocation);
-    }
-
     void Renderer::init_scene() {
         _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
         _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
@@ -459,9 +417,9 @@ namespace VkRenderer {
     void Renderer::draw_objects(VkCommandBuffer cmd) {
         // set up camera parameters and copy
         GPUCameraData camData;
-        camData.proj = _camera.projection;
-        camData.view = _camera.view;
-        camData.viewproj = _camera.projection * _camera.view;
+        camData.proj = _flyCamera->_projection;
+        camData.view = _flyCamera->get_view_matrix();
+        camData.viewproj = _flyCamera->_projection * _flyCamera->get_view_matrix();
         void *data;
         vmaMapMemory(_allocator, get_current_frame().cameraBuffer._allocation, &data);
         memcpy(data, &camData, sizeof(GPUCameraData));
@@ -508,22 +466,7 @@ namespace VkRenderer {
         auto frameTimerStart = std::chrono::high_resolution_clock::now();
 
         // check for camera movement - use previous frametime as a delta
-        auto *keystate = const_cast<uint8_t *>(SDL_GetKeyboardState(nullptr));
-        if (keystate[SDL_SCANCODE_LSHIFT]) {
-            _camera.sprint_multiplier = 2.0f;
-        } else {
-            _camera.sprint_multiplier = 1.0f;
-        }
-        if (keystate[SDL_SCANCODE_W]) _camera.position.z += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_A]) _camera.position.x += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_S]) _camera.position.z -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_D]) _camera.position.x -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_Q]) _camera.position.y += _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_E]) _camera.position.y -= _camera.velocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_LEFT]) _camera.angle -= _camera.rotateVelocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        if (keystate[SDL_SCANCODE_RIGHT]) _camera.angle += _camera.rotateVelocity * _camera.sprint_multiplier * (_previousFrameTime / 1000);
-        // update camera view
-        _camera.view = glm::rotate(glm::translate(glm::mat4(1.0f), _camera.position), _camera.angle, glm::vec3(0.0f, 1.0f, 0.0f));
+        _flyCamera->process_keyboard(_previousFrameTime);
 
         // grab image from swapchain, timeout 1sec
         uint32_t swapchainImageIndex;
@@ -584,12 +527,31 @@ namespace VkRenderer {
         bool bQuit = false;
 
         while (!bQuit) {
+            // disable mouse capture and cursor hide if UI is toggled
+            if (_toggleUI) {
+                SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
+                SDL_SetRelativeMouseMode(SDL_FALSE);
+            } else {
+                SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1", SDL_HINT_OVERRIDE);
+                SDL_SetRelativeMouseMode(SDL_TRUE);
+            }
+
             // handle input events
             while (SDL_PollEvent(&e) != 0) {
-                ImGui_ImplSDL2_ProcessEvent(&e);
+                if(_toggleUI) ImGui_ImplSDL2_ProcessEvent(&e);
                 // close on Alt+F4 or exit button
                 if (e.type == SDL_QUIT) {
                     bQuit = true;
+                }
+                // enable or disable camera to use UI
+                if (e.type == SDL_KEYDOWN) {
+                    if(e.key.keysym.sym == SDLK_TAB) {
+                        _toggleUI = !_toggleUI;
+                    }
+                }
+                // capture mouse movement and process
+                if(e.type == SDL_MOUSEMOTION && !_toggleUI) {
+                    _flyCamera->process_mouse(e.motion.xrel, e.motion.yrel);
                 }
             }
 

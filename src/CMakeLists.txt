@@ -18,7 +18,9 @@ add_executable(${CMAKE_PROJECT_NAME}
         vk/types.h
         vk/check.h
         vk/renderer.cpp
-        vk/renderer.h)
+        vk/renderer.h
+        camera.h
+        camera.cpp)
 
 set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>")
 
