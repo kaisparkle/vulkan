@@ -14,7 +14,7 @@ namespace VkRenderer {
     public:
         void set_model(const std::string &filePath);
 
-        void upload_meshes(VmaAllocator &allocator, DeletionQueue &deletionQueue);
+        void upload_meshes(VmaAllocator &allocator, VkDevice &device, VkQueue &queue, UploadContext &uploadContext, DeletionQueue &deletionQueue);
 
         void set_model_matrix(glm::mat4 newModelMatrix);
 
@@ -35,6 +35,12 @@ namespace VkRenderer {
     public:
         std::unordered_map<std::string, Model> models;
 
-        Model *create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, DeletionQueue &deletionQueue);
+        Model *create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, VkDevice &device, VkQueue &queue,
+                            UploadContext &uploadContext);
+
+        void cleanup();
+
+    private:
+        DeletionQueue _modelDeletionQueue;
     };
 }

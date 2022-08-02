@@ -13,7 +13,7 @@ namespace VkRenderer {
         AllocatedBuffer _indexBuffer;
         Material *_material;
 
-        void upload_mesh(VmaAllocator &allocator, DeletionQueue &deletionQueue);
+        void upload_mesh(VmaAllocator &allocator, VkDevice &device, VkQueue &queue, UploadContext &uploadContext, DeletionQueue &deletionQueue);
 
         void draw_mesh(VkCommandBuffer cmd, glm::mat4 modelMatrix);
     };

@@ -68,18 +68,23 @@ namespace VkRenderer {
         return newMesh;
     }
 
-    void Model::upload_meshes(VmaAllocator &allocator, DeletionQueue &deletionQueue) {
+    void Model::upload_meshes(VmaAllocator &allocator, VkDevice &device, VkQueue &queue, UploadContext &uploadContext, DeletionQueue &deletionQueue) {
         for (auto &mesh: _meshes) {
-            mesh.upload_mesh(allocator, deletionQueue);
+            mesh.upload_mesh(allocator, device, queue, uploadContext, deletionQueue);
         }
     }
 
-    Model *ModelManager::create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, DeletionQueue &deletionQueue) {
+    Model *ModelManager::create_model(const std::string &filePath, const std::string &name, Material *defaultMaterial, VmaAllocator &allocator, VkDevice &device, VkQueue &queue,
+                                      UploadContext &uploadContext) {
         Model newModel;
         newModel._defaultMaterial = defaultMaterial;
         newModel.set_model(filePath);
-        newModel.upload_meshes(allocator, deletionQueue);
+        newModel.upload_meshes(allocator, device, queue, uploadContext, _modelDeletionQueue);
         models[name] = newModel;
         return &models[name];
+    }
+
+    void ModelManager::cleanup() {
+        _modelDeletionQueue.flush();
     }
 }

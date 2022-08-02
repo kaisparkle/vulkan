@@ -15,6 +15,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         vk/material.h
         vk/model.cpp
         vk/model.h
+        vk/utils.cpp
+        vk/utils.h
         vk/types.h
         vk/check.h
         vk/renderer.cpp

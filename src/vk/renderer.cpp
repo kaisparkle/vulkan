@@ -12,6 +12,7 @@
 #include <VkBootstrap.h>
 #include <vk/check.h>
 #include <vk/info.h>
+#include <vk/utils.h>
 
 #include "renderer.h"
 
@@ -268,8 +269,8 @@ namespace VkRenderer {
         _globalSetLayout = _descriptorLayoutCache->create_descriptor_layout(&globalLayoutInfo);
 
         // create scene parameter buffer
-        const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
-        _sceneParameterBuffer = create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        const size_t sceneParamBufferSize = FRAME_OVERLAP * VkRenderer::utils::pad_uniform_buffer_size(_gpuProperties, sizeof(GPUSceneData));
+        _sceneParameterBuffer = VkRenderer::utils::create_buffer(_allocator, sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
         _mainDeletionQueue.push_function([=]() {
             vmaDestroyBuffer(_allocator, _sceneParameterBuffer._buffer, _sceneParameterBuffer._allocation);
         });
@@ -281,7 +282,7 @@ namespace VkRenderer {
             _frame._descriptorAllocator->init(_device);
 
             // create camera buffer
-            _frame.cameraBuffer = create_buffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+            _frame.cameraBuffer = VkRenderer::utils::create_buffer(_allocator, sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
             _mainDeletionQueue.push_function([=]() {
                 vmaDestroyBuffer(_allocator, _frame.cameraBuffer._buffer, _frame.cameraBuffer._allocation);
             });
@@ -350,7 +351,7 @@ namespace VkRenderer {
         ImGui_ImplVulkan_Init(&initInfo, _renderPass);
 
         // upload font textures to GPU
-        immediate_submit([&](VkCommandBuffer cmd) {
+        VkRenderer::utils::immediate_submit(_device, _graphicsQueue, _uploadContext, [&](VkCommandBuffer cmd) {
             ImGui_ImplVulkan_CreateFontsTexture(cmd);
         });
         ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -362,52 +363,15 @@ namespace VkRenderer {
     }
 
     void Renderer::init_scene() {
-        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
-        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("default_mesh"), _allocator, _mainDeletionQueue);
+        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("default_mesh"), _allocator, _device, _graphicsQueue, _uploadContext);
+        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("default_mesh"), _allocator, _device, _graphicsQueue,
+                                   _uploadContext);
         _modelManager.models["sponza"].set_model_matrix(glm::scale(glm::mat4{1.0f}, glm::vec3(0.1f, 0.1f, 0.1f)));
         _modelManager.models["helmet"].set_model_matrix(glm::scale(glm::mat4{1.0f}, glm::vec3(10.0f, 10.0f, 10.0f)));
-    }
 
-    AllocatedBuffer Renderer::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) {
-        // allocate buffer
-        VkBufferCreateInfo bufferInfo = VkRenderer::info::buffer_create_info(allocSize, usage);
-        VmaAllocationCreateInfo vmaAllocInfo = VkRenderer::info::allocation_create_info(memoryUsage, 0);
-        AllocatedBuffer newBuffer;
-        VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaAllocInfo, &newBuffer._buffer, &newBuffer._allocation, nullptr));
-        return newBuffer;
-    }
-
-    size_t Renderer::pad_uniform_buffer_size(size_t originalSize) {
-        // calculate alignment
-        size_t minUboAlignment = _gpuProperties.limits.minUniformBufferOffsetAlignment;
-        size_t alignedSize = originalSize;
-        if (minUboAlignment > 0) {
-            alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
-        }
-
-        return alignedSize;
-    }
-
-    void Renderer::immediate_submit(std::function<void(VkCommandBuffer cmd)> &&function) {
-        // begin buffer recording
-        VkCommandBuffer cmd = _uploadContext._commandBuffer;
-        VkCommandBufferBeginInfo cmdBeginInfo = VkRenderer::info::command_buffer_begin_info(nullptr, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-        VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-        // execute passed function
-        function(cmd);
-
-        // end recording and submit
-        VK_CHECK(vkEndCommandBuffer(cmd));
-        VkSubmitInfo submitInfo = VkRenderer::info::submit_info(nullptr, 0, nullptr, 0, nullptr, 1, &cmd);
-        VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submitInfo, _uploadContext._uploadFence));
-
-        // block on fence
-        vkWaitForFences(_device, 1, &_uploadContext._uploadFence, true, 1000000000);
-        vkResetFences(_device, 1, &_uploadContext._uploadFence);
-
-        // reset pool
-        vkResetCommandPool(_device, _uploadContext._commandPool, 0);
+        _mainDeletionQueue.push_function([=]() {
+            _modelManager.cleanup();
+        });
     }
 
     FrameData &Renderer::get_current_frame() {
@@ -430,7 +394,7 @@ namespace VkRenderer {
         char *sceneData;
         vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void **) &sceneData);
         int frameIndex = _frameNumber % FRAME_OVERLAP;
-        sceneData += pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+        sceneData += VkRenderer::utils::pad_uniform_buffer_size(_gpuProperties, sizeof(GPUSceneData)) * frameIndex;
         memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
         vmaUnmapMemory(_allocator, _sceneParameterBuffer._allocation);
 
@@ -446,7 +410,7 @@ namespace VkRenderer {
         Material *defaultMaterial = _materialManager.get_material("default_mesh");
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipeline);
         // calculate scene buffer offset and bind global set
-        uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+        uint32_t uniform_offset = VkRenderer::utils::pad_uniform_buffer_size(_gpuProperties, sizeof(GPUSceneData)) * frameIndex;
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 0, 1, &globalSet, 1, &uniform_offset);
 
         for (auto &it: _modelManager.models) {
@@ -538,19 +502,19 @@ namespace VkRenderer {
 
             // handle input events
             while (SDL_PollEvent(&e) != 0) {
-                if(_toggleUI) ImGui_ImplSDL2_ProcessEvent(&e);
+                if (_toggleUI) ImGui_ImplSDL2_ProcessEvent(&e);
                 // close on Alt+F4 or exit button
                 if (e.type == SDL_QUIT) {
                     bQuit = true;
                 }
                 // enable or disable camera to use UI
                 if (e.type == SDL_KEYDOWN) {
-                    if(e.key.keysym.sym == SDLK_TAB) {
+                    if (e.key.keysym.sym == SDLK_TAB) {
                         _toggleUI = !_toggleUI;
                     }
                 }
                 // capture mouse movement and process
-                if(e.type == SDL_MOUSEMOTION && !_toggleUI) {
+                if (e.type == SDL_MOUSEMOTION && !_toggleUI) {
                     _flyCamera->process_mouse(e.motion.xrel, e.motion.yrel);
                 }
             }
@@ -569,8 +533,9 @@ namespace VkRenderer {
             // block until GPU finishes
             vkDeviceWaitIdle(_device);
 
-            // flush the deletion queue
+            // flush the deletion queues
             _mainDeletionQueue.flush();
+            //_modelManager.cleanup();
 
             // clean up caches
             for (auto &_frame: _frames) {
