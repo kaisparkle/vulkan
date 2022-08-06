@@ -9,6 +9,7 @@
 #include <imgui.h>
 #include <imgui_impl_sdl.h>
 #include <imgui_impl_vulkan.h>
+#include <implot.h>
 #include <VkBootstrap.h>
 #include <vk/check.h>
 #include <vk/info.h>
@@ -349,6 +350,7 @@ namespace VkRenderer {
 
         // initialize imgui for SDL and Vulkan
         ImGui::CreateContext();
+        ImPlot::CreateContext();
         ImGui_ImplSDL2_InitForVulkan(_resources.window);
         ImGui_ImplVulkan_InitInfo initInfo = {};
         initInfo.Instance = _resources.instance;
@@ -360,6 +362,7 @@ namespace VkRenderer {
         initInfo.ImageCount = 3;
         initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
         ImGui_ImplVulkan_Init(&initInfo, _resources.renderPass);
+        ImGui::StyleColorsDark();
 
         // upload font textures to GPU
         VkRenderer::utils::immediate_submit(&_resources, [&](VkCommandBuffer cmd) {
@@ -382,6 +385,33 @@ namespace VkRenderer {
 
     FrameData &Renderer::get_current_frame() {
         return _frames[_frameNumber % FRAME_OVERLAP];
+    }
+
+    void Renderer::update_ui() {
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                       ImGuiWindowFlags_NoNav;
+        ImVec2 windowPos = {10.0f, 10.0f};
+        ImGui::SetNextWindowPos(windowPos);
+        ImGui::Begin("Frametime Plot", nullptr, windowFlags);
+        static ScrollingBuffer sdata;
+        static float t = 0;
+        t += ImGui::GetIO().DeltaTime;
+        sdata.AddPoint(t, _previousFrameTime);
+
+        static float history = 5.0f;
+        ImGui::PushItemWidth(500);
+        ImGui::SliderFloat("##History", &history, 1, 15, "%.1f s");
+
+        if (ImPlot::BeginPlot("##Frametime Plot", ImVec2(500, 150))) {
+            ImPlot::SetupAxes(nullptr, nullptr);
+            ImPlot::SetupAxisLimits(ImAxis_X1, t - history, t, ImGuiCond_Always);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, 0, 5);
+            ImPlot::SetNextFillStyle(IMPLOT_AUTO_COL, 0.5f);
+            ImPlot::PlotLine("Frametime (ms)", &sdata.Data[0].x, &sdata.Data[0].y, sdata.Data.size(), 0, sdata.Offset, 2 * sizeof(float));
+            ImPlot::EndPlot();
+        }
+
+        ImGui::End();
     }
 
     void Renderer::draw_objects(VkCommandBuffer cmd) {
@@ -418,9 +448,6 @@ namespace VkRenderer {
         // wait until previous frame is rendered, timeout 1sec
         VK_CHECK(vkWaitForFences(_resources.device, 1, &get_current_frame()._renderFence, true, 1000000000));
         VK_CHECK(vkResetFences(_resources.device, 1, &get_current_frame()._renderFence));
-
-        // start rendering the next frame
-        auto frameTimerStart = std::chrono::high_resolution_clock::now();
 
         // check for camera movement - use previous frametime as a delta
         _resources.flyCamera->process_keyboard(_previousFrameTime);
@@ -473,11 +500,6 @@ namespace VkRenderer {
 
         // end the frame
         _frameNumber++;
-        auto frameTimerEnd = std::chrono::high_resolution_clock::now();
-
-        // convert the timer to double and store as previous time
-        std::chrono::duration<double, std::milli> frameDuration = frameTimerEnd - frameTimerStart;
-        _previousFrameTime = frameDuration.count();
     }
 
     void Renderer::run() {
@@ -485,6 +507,9 @@ namespace VkRenderer {
         bool bQuit = false;
 
         while (!bQuit) {
+            // start timing the frame
+            auto frameTimerStart = std::chrono::high_resolution_clock::now();
+
             // disable mouse capture and cursor hide if UI is toggled
             if (_toggleUI) {
                 SDL_SetHintWithPriority(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "0", SDL_HINT_OVERRIDE);
@@ -516,9 +541,14 @@ namespace VkRenderer {
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplSDL2_NewFrame(_resources.window);
             ImGui::NewFrame();
-            ImGui::ShowDemoWindow();
+            update_ui();
 
             draw();
+
+            // finish timing the frame, convert to double and store
+            auto frameTimerEnd = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> frameDuration = frameTimerEnd - frameTimerStart;
+            _previousFrameTime = frameDuration.count();
         }
     }
 
@@ -538,6 +568,8 @@ namespace VkRenderer {
             _resources.descriptorLayoutCache->cleanup();
 
             // manually destroy remaining objects
+            ImPlot::DestroyContext();
+            ImGui::DestroyContext();
             vmaDestroyAllocator(_resources.allocator);
             vkDestroySurfaceKHR(_resources.instance, _resources.surface, nullptr);
             vkDestroyDevice(_resources.device, nullptr);
