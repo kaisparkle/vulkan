@@ -71,4 +71,6 @@ namespace VkRenderer::info {
                              uint32_t signalSemaphoreCount, VkSemaphore *signalSemaphores, uint32_t commandBufferCount, VkCommandBuffer *commandBuffers);
 
     VkPresentInfoKHR present_info(uint32_t swapchainCount, VkSwapchainKHR *swapchains, uint32_t waitSemaphoreCount, VkSemaphore *waitSemaphores, const uint32_t *imageIndices);
+
+    VkSamplerCreateInfo sampler_create_info(VkFilter filters, VkSamplerAddressMode samplerAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
 }

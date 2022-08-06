@@ -1,6 +1,7 @@
 # Add source to this project's executable.
 add_executable(${CMAKE_PROJECT_NAME}
         main.cpp
+        vk/types.h
         vk/info.cpp
         vk/info.h
         vk/pipeline.cpp
@@ -9,6 +10,8 @@ add_executable(${CMAKE_PROJECT_NAME}
         vk/descriptor.h
         vk/vertex.cpp
         vk/vertex.h
+        vk/texture.cpp
+        vk/texture.h
         vk/mesh.cpp
         vk/mesh.h
         vk/material.cpp
@@ -17,7 +20,6 @@ add_executable(${CMAKE_PROJECT_NAME}
         vk/model.h
         vk/utils.cpp
         vk/utils.h
-        vk/types.h
         vk/check.h
         vk/renderer.cpp
         vk/renderer.h
@@ -27,6 +29,6 @@ add_executable(${CMAKE_PROJECT_NAME}
 set_property(TARGET ${CMAKE_PROJECT_NAME} PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>")
 
 target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(${CMAKE_PROJECT_NAME} assimp imgui glm vma vk-bootstrap Vulkan::Vulkan sdl2)
+target_link_libraries(${CMAKE_PROJECT_NAME} stb assimp imgui glm vma vk-bootstrap Vulkan::Vulkan sdl2)
 
 add_dependencies(${CMAKE_PROJECT_NAME} Shaders)

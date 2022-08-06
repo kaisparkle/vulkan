@@ -15,6 +15,9 @@ target_include_directories(vma INTERFACE VulkanMemoryAllocator/include)
 add_library(glm INTERFACE)
 target_include_directories(glm INTERFACE glm)
 
+add_library(stb INTERFACE)
+target_include_directories(stb INTERFACE stb)
+
 add_library(imgui STATIC)
 target_sources(imgui PRIVATE
         imgui/imgui.cpp

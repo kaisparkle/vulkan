@@ -5,5 +5,5 @@ namespace VkRenderer::utils {
 
     size_t pad_uniform_buffer_size(VkPhysicalDeviceProperties gpuProperties, size_t originalSize);
 
-    void immediate_submit(VkDevice &device, VkQueue &queue, UploadContext &uploadContext, std::function<void(VkCommandBuffer cmd)> &&function);
+    void immediate_submit(ResourceHandles *resources, std::function<void(VkCommandBuffer cmd)> &&function);
 }

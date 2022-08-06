@@ -6,6 +6,7 @@
 #include <vulkan/vulkan.h>
 #include <vk_mem_alloc.h>
 #include <vk/descriptor.h>
+#include <camera.h>
 
 namespace VkRenderer {
     struct AllocatedBuffer {
@@ -16,16 +17,6 @@ namespace VkRenderer {
     struct AllocatedImage {
         VkImage _image;
         VmaAllocation _allocation;
-    };
-
-    struct Camera {
-        glm::vec3 position;
-        glm::mat4 view;
-        glm::mat4 projection;
-        float angle;
-        float rotateVelocity;
-        float velocity;
-        float sprint_multiplier;
     };
 
     struct GPUCameraData {
@@ -77,5 +68,35 @@ namespace VkRenderer {
 
             deletors.clear();
         }
+    };
+
+    struct ResourceHandles {
+        struct SDL_Window *window{nullptr};
+        FlyCamera *flyCamera;
+        GPUSceneData sceneParameters;
+        UploadContext uploadContext;
+        DeletionQueue mainDeletionQueue;
+        VmaAllocator allocator;
+        VkExtent2D windowExtent{1700, 900};
+        VkInstance instance;
+        VkDebugUtilsMessengerEXT debug_messenger;
+        VkPhysicalDevice chosenGPU;
+        VkPhysicalDeviceProperties gpuProperties;
+        VkDevice device;
+        VkSurfaceKHR surface;
+        VkSwapchainKHR swapchain;
+        VkFormat swapchainImageFormat;
+        std::vector<VkImage> swapchainImages;
+        std::vector<VkImageView> swapchainImageViews;
+        VkImageView depthImageView;
+        AllocatedImage depthImage;
+        VkFormat depthFormat;
+        VkQueue graphicsQueue;
+        uint32_t graphicsQueueFamily;
+        VkRenderPass renderPass;
+        std::vector<VkFramebuffer> framebuffers;
+        VkRenderer::descriptor::LayoutCache *descriptorLayoutCache;
+        VkDescriptorSetLayout globalSetLayout;
+        VkDescriptorSetLayout textureSetLayout;
     };
 }
