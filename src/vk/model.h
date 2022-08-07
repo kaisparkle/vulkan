@@ -16,17 +16,22 @@ namespace VkRenderer {
     public:
         void set_model(const std::string &filePath, ResourceHandles *resources);
 
-        void upload_meshes(ResourceHandles *resources);
+        void update_transform();
 
-        void set_model_matrix(glm::mat4 newModelMatrix);
+        void upload_meshes(ResourceHandles *resources);
 
         void draw_model(VkCommandBuffer cmd);
 
-        glm::mat4 modelMatrix = glm::mat4{1.0f};
         std::vector<Mesh> meshes;
         Material *defaultMaterial;
 
+        // using public float arrays so imgui can update them
+        float translation[3] = {0.0f, 0.0f, 0.0f};
+        float rotation[3] = {0.0f, 0.0f, 0.0f};
+        float scale[3] = {1.0f, 1.0f, 1.0f};
+
     private:
+        glm::mat4 _modelMatrix = glm::mat4{1.0f};
         TextureManager *_textureManager;
         std::string _directory;
 

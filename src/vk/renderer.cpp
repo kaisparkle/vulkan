@@ -380,7 +380,11 @@ namespace VkRenderer {
         _modelManager.init(&_resources);
 
         _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("textured_mesh"));
-        _modelManager.models["sponza"].set_model_matrix(glm::scale(glm::mat4{1.0f}, glm::vec3(0.1f, 0.1f, 0.1f)));
+        _modelManager.models["sponza"].scale[0] = 0.1f;
+        _modelManager.models["sponza"].scale[1] = 0.1f;
+        _modelManager.models["sponza"].scale[2] = 0.1f;
+
+        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("textured_mesh"));
     }
 
     FrameData &Renderer::get_current_frame() {
@@ -388,17 +392,18 @@ namespace VkRenderer {
     }
 
     void Renderer::update_ui() {
-        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
-                                       ImGuiWindowFlags_NoNav;
-        ImVec2 windowPos = {10.0f, 10.0f};
-        ImGui::SetNextWindowPos(windowPos);
-        ImGui::Begin("Frametime Plot", nullptr, windowFlags);
+        // frametime plot
         static ScrollingBuffer sdata;
         static float t = 0;
         t += ImGui::GetIO().DeltaTime;
         sdata.AddPoint(t, _previousFrameTime);
-
         static float history = 5.0f;
+
+        ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
+                                       ImGuiWindowFlags_NoNav;
+        ImVec2 frametimeWindowPos = {0.0f + 10.0f, 0.0f + 10.0f};
+        ImGui::SetNextWindowPos(frametimeWindowPos);
+        ImGui::Begin("Frametime Plot", nullptr, windowFlags);
         ImGui::PushItemWidth(500);
         ImGui::SliderFloat("##History", &history, 1, 15, "%.1f s");
 
@@ -410,7 +415,23 @@ namespace VkRenderer {
             ImPlot::PlotLine("Frametime (ms)", &sdata.Data[0].x, &sdata.Data[0].y, sdata.Data.size(), 0, sdata.Offset, 2 * sizeof(float));
             ImPlot::EndPlot();
         }
+        ImGui::End();
 
+        // scene editor
+        ImVec2 sceneWindowPos = {static_cast<float>(_resources.windowExtent.width), 0.0f};
+        ImVec2 sceneWindowPivot = {1.0f, 0.0f};
+        ImVec2 sceneWindowSize = {-1, ImGui::GetIO().DisplaySize.y};
+        ImGui::SetNextWindowPos(sceneWindowPos, 0, sceneWindowPivot);
+        ImGui::SetNextWindowSize(sceneWindowSize);
+        ImGui::Begin("Scene", nullptr);
+        for (auto &it: _modelManager.models) {
+            if(ImGui::TreeNode(it.first.c_str())) {
+                ImGui::DragFloat3("Translation", it.second.translation, 1.0f, 0.0f, 0.0f, "%.1f");
+                ImGui::DragFloat3("Rotation", it.second.rotation, 1.0f, -360.0f, 360.0f, "%.1f deg");
+                ImGui::DragFloat3("Scale", it.second.scale, 1.0f, 0.0f, 0.0f, "%.1f");
+                ImGui::TreePop();
+            }
+        }
         ImGui::End();
     }
 
@@ -437,6 +458,7 @@ namespace VkRenderer {
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 0, 1, &globalSet, 0, nullptr);
 
         for (auto &it: _modelManager.models) {
+            it.second.update_transform();
             it.second.draw_model(cmd);
         }
     }

@@ -6,6 +6,7 @@
 #include <vk/info.h>
 
 #define STB_IMAGE_IMPLEMENTATION
+
 #include <stb_image.h>
 
 #include "model.h"
@@ -27,13 +28,26 @@ namespace VkRenderer {
         process_node(modelScene->mRootNode, modelScene);
     }
 
-    void Model::set_model_matrix(glm::mat4 newModelMatrix) {
-        modelMatrix = newModelMatrix;
+    void Model::update_transform() {
+        glm::mat4 newTransform = glm::mat4{1.0f};
+
+        // translate
+        newTransform = glm::translate(newTransform, glm::vec3(translation[0], translation[1], translation[2]));
+
+        // rotate by each XYZ value
+        newTransform = glm::rotate(newTransform, glm::radians(rotation[0]), glm::vec3(1.0f, 0.0f, 0.0f));
+        newTransform = glm::rotate(newTransform, glm::radians(rotation[1]), glm::vec3(0.0f, 1.0f, 0.0f));
+        newTransform = glm::rotate(newTransform, glm::radians(rotation[2]), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // scale
+        newTransform = glm::scale(newTransform, glm::vec3(scale[0], scale[1], scale[2]));
+
+        _modelMatrix = newTransform;
     }
 
     void Model::draw_model(VkCommandBuffer cmd) {
         for (auto &mesh: meshes) {
-            mesh.draw_mesh(cmd, modelMatrix);
+            mesh.draw_mesh(cmd, _modelMatrix);
         }
     }
 
