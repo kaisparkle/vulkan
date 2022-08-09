@@ -84,7 +84,8 @@ namespace VkRenderer {
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &_vertexBuffer._buffer, &offset);
         vkCmdBindIndexBuffer(cmd, _indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT16);
-        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _material->pipelineLayout, 1, 1, &_texture->descriptor, 0, nullptr);
+        //vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _material->pipelineLayout, 1, 1, &_texture->descriptor, 0, nullptr);
+        vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, _material->pipelineLayout, 1, 1, &_pbrTexture->descriptor, 0, nullptr);
         vkCmdDrawIndexed(cmd, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
     }
 }

@@ -21,8 +21,8 @@ public:
     void process_mouse(float dx, float dy);
 
     glm::mat4 _projection;
-private:
     glm::vec3 _position;
+private:
     glm::vec3 _up;
     glm::vec3 _front;
     glm::vec3 _right;

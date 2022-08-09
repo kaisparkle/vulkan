@@ -264,7 +264,7 @@ namespace VkRenderer {
         _resources.descriptorLayoutCache->init(_resources.device);
 
         // create global set layout
-        VkDescriptorSetLayoutBinding camBufferBinding = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
+        VkDescriptorSetLayoutBinding camBufferBinding = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0);
         VkDescriptorSetLayoutCreateInfo globalLayoutInfo = VkRenderer::info::descriptor_set_layout_create_info(1, &camBufferBinding, 0);
         _resources.globalSetLayout = _resources.descriptorLayoutCache->create_descriptor_layout(&globalLayoutInfo);
 
@@ -273,6 +273,14 @@ namespace VkRenderer {
                                                                                                          0);
         VkDescriptorSetLayoutCreateInfo textureLayoutInfo = VkRenderer::info::descriptor_set_layout_create_info(1, &textureBind, 0);
         _resources.textureSetLayout = _resources.descriptorLayoutCache->create_descriptor_layout(&textureLayoutInfo);
+
+        VkDescriptorSetLayoutBinding pbrBind1 = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+        VkDescriptorSetLayoutBinding pbrBind2 = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+        VkDescriptorSetLayoutBinding pbrBind3 = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 2);
+        VkDescriptorSetLayoutBinding pbrBind4 = VkRenderer::descriptor::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 3);
+        VkDescriptorSetLayoutBinding pbrBinds[] = {pbrBind1, pbrBind2, pbrBind3, pbrBind4};
+        VkDescriptorSetLayoutCreateInfo pbrLayoutInfo = VkRenderer::info::descriptor_set_layout_create_info(4, pbrBinds, 0);
+        _resources.pbrSetLayout = _resources.descriptorLayoutCache->create_descriptor_layout(&pbrLayoutInfo);
 
         // set up buffers for each frame in flight
         for (auto &_frame: _frames) {
@@ -319,6 +327,19 @@ namespace VkRenderer {
         texturedMaterialInfo.renderPass = _resources.renderPass;
         texturedMaterialInfo.name = "textured_mesh";
         _materialManager.create_material(&texturedMaterialInfo);
+
+        // create pbr material
+        VkDescriptorSetLayout pbrSetLayouts[] = {_resources.globalSetLayout, _resources.pbrSetLayout};
+        MaterialCreateInfo pbrMaterialInfo = {};
+        pbrMaterialInfo.vertShaderPath = "../shaders/default_mesh.vert.spv";
+        pbrMaterialInfo.fragShaderPath = "../shaders/pbr.frag.spv";
+        pbrMaterialInfo.setLayoutCount = 2;
+        pbrMaterialInfo.setLayouts = pbrSetLayouts;
+        pbrMaterialInfo.device = _resources.device;
+        pbrMaterialInfo.extent = _resources.windowExtent;
+        pbrMaterialInfo.renderPass = _resources.renderPass;
+        pbrMaterialInfo.name = "pbr";
+        _materialManager.create_material(&pbrMaterialInfo);
 
         _resources.mainDeletionQueue.push_function([=]() {
             _materialManager.cleanup(_resources.device);
@@ -379,12 +400,13 @@ namespace VkRenderer {
     void Renderer::init_scene() {
         _modelManager.init(&_resources);
 
-        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("textured_mesh"));
+        _modelManager.create_model("../assets/sponza-gltf-pbr/sponza.glb", "sponza", _materialManager.get_material("pbr"));
         _modelManager.models["sponza"].scale[0] = 0.1f;
         _modelManager.models["sponza"].scale[1] = 0.1f;
         _modelManager.models["sponza"].scale[2] = 0.1f;
 
-        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("textured_mesh"));
+        _modelManager.create_model("../assets/SciFiHelmet.gltf", "helmet", _materialManager.get_material("pbr"));
+
     }
 
     FrameData &Renderer::get_current_frame() {
@@ -441,6 +463,7 @@ namespace VkRenderer {
         camData.proj = _resources.flyCamera->_projection;
         camData.view = _resources.flyCamera->get_view_matrix();
         camData.viewproj = _resources.flyCamera->_projection * _resources.flyCamera->get_view_matrix();
+        camData.camPos = _resources.flyCamera->_position;
         void *data;
         vmaMapMemory(_resources.allocator, get_current_frame().cameraBuffer._allocation, &data);
         memcpy(data, &camData, sizeof(GPUCameraData));
@@ -450,10 +473,10 @@ namespace VkRenderer {
         VkDescriptorBufferInfo camBufferInfo = VkRenderer::info::descriptor_buffer_info(get_current_frame().cameraBuffer._buffer, 0, sizeof(GPUCameraData));
         VkDescriptorSet globalSet;
         VkRenderer::descriptor::Builder::begin(_resources.descriptorLayoutCache, get_current_frame()._descriptorAllocator)
-                .bind_buffer(0, &camBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+                .bind_buffer(0, &camBufferInfo, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT)
                 .build(globalSet);
 
-        Material *defaultMaterial = _materialManager.get_material("textured_mesh");
+        Material *defaultMaterial = _materialManager.get_material("pbr");
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipeline);
         vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, defaultMaterial->pipelineLayout, 0, 1, &globalSet, 0, nullptr);
 

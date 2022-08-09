@@ -83,6 +83,14 @@ namespace VkRenderer {
                 newVertex.uv.x = mesh->mTextureCoords[0][i].x;
                 newVertex.uv.y = mesh->mTextureCoords[0][i].y;
             }
+            if (mesh->HasTangentsAndBitangents()) {
+                newVertex.tangent.x = mesh->mTangents[i].x;
+                newVertex.tangent.y = mesh->mTangents[i].y;
+                newVertex.tangent.z = mesh->mTangents[i].z;
+                newVertex.bitangent.x = mesh->mBitangents[i].x;
+                newVertex.bitangent.y = mesh->mBitangents[i].y;
+                newVertex.bitangent.z = mesh->mBitangents[i].z;
+            }
             newMesh._vertices.push_back(newVertex);
         }
         for (size_t i = 0; i < mesh->mNumFaces; i++) {
@@ -93,23 +101,46 @@ namespace VkRenderer {
         }
 
         aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
-        for (size_t i = 0; i < material->GetTextureCount(aiTextureType_DIFFUSE); i++) {
-            aiString str;
-            material->GetTexture(aiTextureType_DIFFUSE, i, &str);
-            std::string fullPath = _directory + '/' + str.C_Str();
+        std::vector<Texture*> textureMaps;
+        textureMaps.push_back(create_texture(material, aiTextureType_BASE_COLOR, "texture_base"));
+        textureMaps.push_back(create_texture(material, aiTextureType_NORMALS, "texture_normal"));
+        textureMaps.push_back(create_texture(material, aiTextureType_DIFFUSE_ROUGHNESS, "texture_roughness"));
+        textureMaps.push_back(create_texture(material, aiTextureType_METALNESS, "texture_metalness"));
+        textureMaps.push_back(create_texture(material, aiTextureType_AMBIENT_OCCLUSION, "texture_ao"));
 
-            // check if the texture already exists
-            Texture *existingTexture = _textureManager->get_texture(fullPath);
-            if (existingTexture) {
-                // use existing texture
-                newMesh._texture = existingTexture;
-            } else {
-                // create new texture
-                newMesh._texture = _textureManager->create_texture(fullPath, "texture_diffuse");
-            }
+        // just use the base color path as name
+        aiString str;
+        material->GetTexture(aiTextureType_DIFFUSE, 0, &str);
+        std::string fullPath = _directory + '/' + str.C_Str();
+        PBRTexture *existingTexture = _textureManager->get_pbr_texture(fullPath);
+        if(existingTexture) {
+            newMesh._pbrTexture = existingTexture;
+        } else {
+            newMesh._pbrTexture = _textureManager->create_pbr_texture(textureMaps, fullPath);
         }
 
+        newMesh._texture = textureMaps[0];
+
         return newMesh;
+    }
+
+    Texture *Model::create_texture(aiMaterial *material, aiTextureType textureType, const std::string &typeName) {
+        if (!material->GetTextureCount(textureType)) {
+            // no textures of this type
+            return _textureManager->_defaultTexture;
+        }
+
+        aiString str;
+        material->GetTexture(textureType, 0, &str);
+        std::string fullPath = _directory + '/' + str.C_Str();
+        // check if it already exists
+        Texture *existingTexture = _textureManager->get_texture(fullPath);
+        if(existingTexture) {
+            return existingTexture;
+        } else {
+            // create new texture
+            return _textureManager->create_texture(fullPath, typeName);
+        }
     }
 
     void Model::upload_meshes(ResourceHandles *resources) {

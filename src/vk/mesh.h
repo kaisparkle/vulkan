@@ -13,6 +13,7 @@ namespace VkRenderer {
         AllocatedBuffer _vertexBuffer;
         AllocatedBuffer _indexBuffer;
         Texture *_texture;
+        PBRTexture *_pbrTexture;
         Material *_material;
 
         void upload_mesh(ResourceHandles *resources);

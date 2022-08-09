@@ -11,7 +11,7 @@ namespace VkRenderer {
         _resources = resources;
         _descriptorAllocator = new VkRenderer::descriptor::Allocator{};
         _descriptorAllocator->init(_resources->device);
-        _defaultTexture = create_texture("../assets/devtex/dev_grid.png", "texture_diffuse");
+        _defaultTexture = create_texture("../assets/devtex/dev_black.png", "texture_base");
     }
 
     Texture *TextureManager::create_texture(const std::string &filePath, const std::string &typeName) {
@@ -103,12 +103,11 @@ namespace VkRenderer {
 
         // create sampler
         VkSamplerCreateInfo samplerInfo = VkRenderer::info::sampler_create_info(VK_FILTER_LINEAR);
-        VkSampler sampler;
-        vkCreateSampler(_resources->device, &samplerInfo, nullptr, &sampler);
+        vkCreateSampler(_resources->device, &samplerInfo, nullptr, &newTexture.sampler);
 
         // write to descriptor set
         VkDescriptorImageInfo descriptorImageInfo = {};
-        descriptorImageInfo.sampler = sampler;
+        descriptorImageInfo.sampler = newTexture.sampler;
         descriptorImageInfo.imageView = newTexture.imageView;
         descriptorImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -123,7 +122,43 @@ namespace VkRenderer {
         _textures[filePath] = newTexture;
 
         std::cout << "Loaded texture " << filePath << std::endl;
+        std::cout << "Type: " << typeName << std::endl;
         return &_textures[filePath];
+    }
+
+    PBRTexture *TextureManager::create_pbr_texture(std::vector<Texture*> &textureMaps, const std::string &name) {
+        PBRTexture newPbrTexture;
+        newPbrTexture.textureMaps = textureMaps;
+
+        VkDescriptorImageInfo baseImageInfo = {};
+        baseImageInfo.sampler = newPbrTexture.textureMaps[0]->sampler;
+        baseImageInfo.imageView = newPbrTexture.textureMaps[0]->imageView;
+        baseImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo normalImageInfo = {};
+        normalImageInfo.sampler = newPbrTexture.textureMaps[1]->sampler;
+        normalImageInfo.imageView = newPbrTexture.textureMaps[1]->imageView;
+        normalImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo roughnessImageInfo = {};
+        roughnessImageInfo.sampler = newPbrTexture.textureMaps[2]->sampler;
+        roughnessImageInfo.imageView = newPbrTexture.textureMaps[2]->imageView;
+        roughnessImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        VkDescriptorImageInfo metalnessImageInfo = {};
+        metalnessImageInfo.sampler = newPbrTexture.textureMaps[3]->sampler;
+        metalnessImageInfo.imageView = newPbrTexture.textureMaps[3]->imageView;
+        metalnessImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+        VkDescriptorSet pbrDescriptor;
+        VkRenderer::descriptor::Builder::begin(_resources->descriptorLayoutCache, _descriptorAllocator)
+                .bind_image(0, &baseImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(1, &normalImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(2, &roughnessImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .bind_image(3, &metalnessImageInfo, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                .build(pbrDescriptor);
+        newPbrTexture.descriptor = pbrDescriptor;
+
+        _pbrTextures[name] = newPbrTexture;
+        std::cout << "Loaded PBR texture " << name << std::endl;
+        return &_pbrTextures[name];
     }
 
     Texture *TextureManager::get_texture(const std::string &name) {
@@ -132,6 +167,15 @@ namespace VkRenderer {
             return nullptr;
         } else {
             return &_textures[name];
+        }
+    }
+
+    PBRTexture *TextureManager::get_pbr_texture(const std::string &name) {
+        if (_pbrTextures.find(name) == _pbrTextures.end()) {
+            // does not exist
+            return nullptr;
+        } else {
+            return &_pbrTextures[name];
         }
     }
 }

@@ -23,6 +23,7 @@ namespace VkRenderer {
         glm::mat4 view;
         glm::mat4 proj;
         glm::mat4 viewproj;
+        glm::vec3 camPos;
     };
 
     struct GPUSceneData {
@@ -98,5 +99,6 @@ namespace VkRenderer {
         VkRenderer::descriptor::LayoutCache *descriptorLayoutCache;
         VkDescriptorSetLayout globalSetLayout;
         VkDescriptorSetLayout textureSetLayout;
+        VkDescriptorSetLayout pbrSetLayout;
     };
 }

@@ -38,6 +38,8 @@ namespace VkRenderer {
         void process_node(aiNode *node, const aiScene *scene);
 
         Mesh process_mesh(aiMesh *mesh, const aiScene *scene);
+
+        Texture *create_texture(aiMaterial *material, aiTextureType textureType, const std::string &typeName);
     };
 
     class ModelManager {
