@@ -22,7 +22,7 @@ layout (set = 0, binding = 0) uniform CameraBuffer {
 const float PI = 3.14159265359;
 vec3 getNormalFromMap()
 {
-    vec3 tangentNormal = texture(normalMap, texCoord).xyz * 2.0 - 1.0;
+    /*vec3 tangentNormal = texture(normalMap, texCoord).xyz * 2.0 - 1.0;
 
     vec3 Q1  = dFdx(worldPos);
     vec3 Q2  = dFdy(worldPos);
@@ -32,9 +32,9 @@ vec3 getNormalFromMap()
     vec3 N   = normalize(inNormal);
     vec3 T  = normalize(Q1*st2.t - Q2*st1.t);
     vec3 B  = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
+    mat3 TBN = mat3(T, B, N);*/
 
-    return normalize(TBN * tangentNormal);
+    return normalize(inNormal);
 }
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
